@@ -255,7 +255,7 @@ Linked from the detail page: "View recent check history →"
 | Templates | Django templates (server-side rendered) |
 | Linting/formatting | `ruff` |
 | Type checking | `ty` |
-| Testing | `pytest` + `pytest-cov` + `pytest-django` |
+| Testing | `pytest` + `pytest-cov` + `pytest-django` + `respx` |
 | Pre-commit | `prek` (Rust fork of pre-commit) |
 | CI | GitHub Actions |
 
@@ -269,14 +269,16 @@ pingu/
 │       └── ci.yml
 ├── .prek-commit-config.yaml
 ├── README.md
+├── conftest.py                    # Shared test fixtures
 ├── doc/
-│   ├── ARCHITECTURE.md
+│   ├── DESIGN_GUIDE.md
 │   ├── pingu-web.service          # systemd service (gunicorn)
-│   └── pingu-checks.timer         # systemd timer (checks every minute)
-│   └── pingu-checks.service       # systemd service (check runner)
+│   ├── pingu-checks.timer         # systemd timer (checks every minute)
+│   ├── pingu-checks.service       # systemd service (check runner)
+│   ├── pingu-cleanup.timer        # systemd timer (daily cleanup)
+│   └── pingu-cleanup.service      # systemd service (result cleanup)
 ├── pyproject.toml
 ├── package.json                   # Tailwind only
-├── tailwind.config.js
 ├── src/
 │   └── pingu/
 │       ├── settings.py
@@ -320,12 +322,10 @@ pingu/
 │       │           └── login.html
 │       └── templates/
 │           └── base.html          # Base template with nav, dark theme
-├── static/
-│   └── css/
-│       ├── input.css              # Tailwind input
-│       └── output.css             # Compiled (gitignored, built by npm)
-└── tests/
-    └── conftest.py                # Shared fixtures
+└── static/
+    └── css/
+        ├── input.css              # Tailwind input
+        └── output.css             # Compiled (gitignored, built by npm)
 ```
 
 ### 3.3 Configuration (`.env`)
@@ -578,7 +578,7 @@ Hooks (in order):
 1. Checkout code.
 2. Set up Python (with `uv`).
 3. Set up Node.js.
-4. Install Python dependencies (`uv sync`).
+4. Install Python dependencies (`uv sync --all-extras`).
 5. Install npm dependencies (`npm ci`).
 6. Build Tailwind CSS (`npm run build`).
 7. Run `uv run ruff format --check`.
