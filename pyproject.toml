@@ -1,0 +1,7 @@
+[project]
+name = "pingu"
+version = "0.1.0"
+description = "Simple web service uptime checker"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
