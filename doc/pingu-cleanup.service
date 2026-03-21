@@ -1,0 +1,10 @@
+[Unit]
+Description=Pingu Cleanup Old Results
+After=network.target
+
+[Service]
+Type=oneshot
+User=exedev
+Group=exedev
+WorkingDirectory=/home/exedev/pingu
+ExecStart=/home/exedev/pingu/.venv/bin/python /home/exedev/pingu/manage.py cleanup_results

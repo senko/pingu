@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+{% block title %}{{ check.name }} – Pingu{% endblock %}
+
+{% block breadcrumb %}
+<a href="{% url 'core:dashboard' %}" class="text-text-secondary hover:text-text-primary transition-colors no-underline">dashboard</a>
+<span class="text-text-muted mx-1">/</span>
+{{ check.name }}
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Summary header card ── -->
+<div class="bg-surface-800 border border-border rounded-xl overflow-hidden">
+  <div class="px-5 py-5 sm:px-6">
+    <!-- Name + badge + actions -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-3">
+          <h1 class="text-lg font-semibold">{{ check.name }}</h1>
+          {% if status == 'up' %}
+          <span class="badge badge-up">UP</span>
+          {% elif status == 'down' %}
+          <span class="badge badge-down"><span class="w-1.5 h-1.5 rounded-full bg-[#ef4444] pulse-down"></span>DOWN</span>
+          {% elif status == 'paused' %}
+          <span class="badge badge-paused">PAUSED</span>
+          {% else %}
+          <span class="badge badge-unknown">UNKNOWN</span>
+          {% endif %}
+        </div>
+        <div class="flex items-center gap-2 mt-1.5">
+          {% if check.method != 'GET' %}
+          <span class="text-[0.6875rem] font-mono font-medium px-1.5 py-0.5 rounded bg-surface-600 text-text-muted">{{ check.method }}</span>
+          {% endif %}
+          <span class="text-sm font-mono text-text-secondary">{{ check.url }}</span>
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <form method="post" action="{% url 'core:check_run' check.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn-primary" {% if status == 'paused' %}disabled style="opacity:0.5;cursor:not-allowed;"{% endif %}>
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3l14 9-14 9V3z"/></svg>
+            Check Now
+          </button>
+        </form>
+        <a href="{% url 'core:check_edit' check.pk %}" class="btn-secondary">Edit</a>
+        <a href="{% url 'core:check_delete' check.pk %}" class="btn-danger">Delete</a>
+      </div>
+    </div>
+
+    <!-- Config summary grid -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mt-5 pt-5 border-t border-border">
+      <div>
+        <div class="section-label">Interval</div>
+        <div class="text-sm mt-1">{{ check.interval }} min</div>
+      </div>
+      <div>
+        <div class="section-label">Timeout</div>
+        <div class="text-sm mt-1">{{ check.timeout }}s</div>
+      </div>
+      <div>
+        <div class="section-label">Expected Codes</div>
+        <div class="text-sm mt-1 font-mono">
+          {% for code in check.expected_statuses %}{{ code }}{% if not forloop.last %}, {% endif %}{% empty %}&mdash;{% endfor %}
+        </div>
+      </div>
+      <div>
+        <div class="section-label">Alerts</div>
+        <div class="text-sm mt-1">{% if check.alert_enabled %}Enabled (after {{ check.alert_threshold }}){% else %}Disabled{% endif %}</div>
+      </div>
+      <div>
+        <div class="section-label">Alert Email</div>
+        <div class="text-sm mt-1 truncate">{% if check.alert_email %}{{ check.alert_email }}{% else %}&mdash;{% endif %}</div>
+      </div>
+      <div>
+        <div class="section-label">Created</div>
+        <div class="text-sm mt-1">{{ check.created_at|date:"M j, Y" }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Last 24 Hours chart ── -->
+<div class="bg-surface-800 border border-border rounded-xl overflow-hidden mt-5">
+  <div class="px-5 py-4 border-b border-border flex items-center justify-between">
+    <h2 class="text-sm font-semibold">Last 24 Hours</h2>
+    <span class="text-xs font-medium
+      {% if uptime_24h >= 99.9 %}text-status-up
+      {% elif uptime_24h >= 99.0 %}text-status-warn
+      {% elif uptime_24h >= 95.0 %}text-status-orange
+      {% else %}text-status-down{% endif %}
+    ">{{ uptime_24h }}% uptime</span>
+  </div>
+  <div class="px-5 py-5">
+    <!-- Bars -->
+    <div class="bar-wrap" style="height:3.5rem;align-items:flex-end;">
+      {% for bar in hourly_data %}
+      <div class="bar-col" style="flex:1;">
+        <div class="bar-tooltip">
+          <div>{{ bar.hour_start|date:"H:i" }} – {{ bar.hour_end|date:"H:i" }}</div>
+          <div class="text-text-muted">{% if bar.total > 0 %}{{ bar.uptime_pct }}% · {{ bar.total }} checks · {{ bar.failures }} fail{% else %}No data{% endif %}</div>
+        </div>
+        <div class="rounded-sm bg-{{ bar.color }}" style="height:{% if bar.total > 0 %}{{ bar.uptime_pct }}{% else %}20{% endif %}%;min-height:4px;transition:height 300ms ease;"></div>
+      </div>
+      {% endfor %}
+    </div>
+    <!-- Time labels -->
+    <div class="flex justify-between mt-2 text-[0.625rem] text-text-muted">
+      <span>{{ hourly_data.0.hour_start|date:"H:i" }}</span>
+      <span>06:00</span>
+      <span>12:00</span>
+      <span>18:00</span>
+      <span>Now</span>
+    </div>
+    <!-- Link -->
+    <div class="mt-4">
+      <a href="{% url 'core:check_history' check.pk %}" class="text-xs text-accent-teal hover:underline">View all checks in the past 24 hours &rarr;</a>
+    </div>
+  </div>
+</div>
+
+<!-- ── Last 30 Days chart ── -->
+<div class="bg-surface-800 border border-border rounded-xl overflow-hidden mt-5">
+  <div class="px-5 py-4 border-b border-border flex items-center justify-between">
+    <h2 class="text-sm font-semibold">Last 30 Days</h2>
+    <span class="text-xs font-medium
+      {% if uptime_30d >= 99.9 %}text-status-up
+      {% elif uptime_30d >= 99.0 %}text-status-warn
+      {% elif uptime_30d >= 95.0 %}text-status-orange
+      {% else %}text-status-down{% endif %}
+    ">{{ uptime_30d }}% uptime</span>
+  </div>
+  <div class="px-5 py-5">
+    <div class="bar-wrap" style="height:3.5rem;align-items:flex-end;">
+      {% for bar in daily_data %}
+      <div class="bar-col" style="flex:1;">
+        <div class="bar-tooltip">
+          <div>{{ bar.date|date:"M j, Y" }}</div>
+          <div class="text-text-muted">
+            {% if bar.has_data %}{{ bar.uptime_pct }}% uptime{% else %}No data{% endif %}
+            {% if bar.total > 0 %} · {{ bar.total }} checks{% endif %}
+          </div>
+        </div>
+        <div class="rounded-sm bg-{{ bar.color }}" style="height:{% if bar.has_data %}{{ bar.uptime_pct }}{% else %}20{% endif %}%;min-height:4px;transition:height 300ms ease;"></div>
+      </div>
+      {% endfor %}
+    </div>
+    <!-- Date labels -->
+    <div class="flex justify-between mt-2 text-[0.625rem] text-text-muted">
+      {% if daily_data %}
+      <span>{{ daily_data.0.date|date:"M j" }}</span>
+      <span>{{ daily_data|length|add:"-1" }} days ago</span>
+      <span>Today</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ── Monthly History ── -->
+{% if monthly_data %}
+<div class="bg-surface-800 border border-border rounded-xl overflow-hidden mt-5">
+  <div class="px-5 py-4 border-b border-border">
+    <h2 class="text-sm font-semibold">Monthly History</h2>
+  </div>
+  <div class="divide-y divide-border">
+    {% for month in monthly_data %}
+    <div class="px-5 py-3 flex items-center justify-between">
+      <span class="text-sm">{{ month.label }}</span>
+      <div class="flex items-center gap-4 text-xs">
+        {% if month.has_data %}
+        <span class="
+          {% if month.uptime_pct >= 99.9 %}text-status-up
+          {% elif month.uptime_pct >= 99.0 %}text-status-warn
+          {% elif month.uptime_pct >= 95.0 %}text-status-orange
+          {% else %}text-status-down{% endif %}
+          font-medium">{{ month.uptime_pct }}%</span>
+        <span class="text-text-muted">{{ month.incidents }} incident{{ month.incidents|pluralize }}</span>
+        {% else %}
+        <span class="text-text-muted">No data</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Recent Incidents ── -->
+{% if incidents %}
+<div class="bg-surface-800 border border-border rounded-xl overflow-hidden mt-5">
+  <div class="px-5 py-4 border-b border-border">
+    <h2 class="text-sm font-semibold">Recent Incidents</h2>
+  </div>
+  <div class="divide-y divide-border">
+    {% for incident in incidents %}
+    <div class="px-5 py-3 flex items-start gap-3">
+      {% if incident.is_open %}
+      <span class="w-2 h-2 rounded-full bg-[#ef4444] mt-1.5 flex-shrink-0 pulse-down"></span>
+      {% else %}
+      <span class="w-2 h-2 rounded-full bg-[#22c55e] mt-1.5 flex-shrink-0"></span>
+      {% endif %}
+      <div class="flex-1 min-w-0">
+        <div class="text-sm">
+          {% if incident.is_open %}
+          <span class="text-[#ef4444] font-medium">Ongoing</span> — started {{ incident.started_at|date:"M j, Y H:i" }}
+          {% else %}
+          <span class="text-text-primary">Resolved</span> — {{ incident.started_at|date:"M j H:i" }} to {{ incident.ended_at|date:"M j H:i" }}
+          {% endif %}
+        </div>
+        <div class="text-xs text-text-muted mt-0.5">Duration: {{ incident.duration }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Footer ── -->
+<div class="mt-8 pb-4 text-center">
+  <a href="{% url 'core:dashboard' %}" class="text-xs text-text-muted hover:text-text-secondary transition-colors">&larr; Back to dashboard</a>
+</div>
+
+{% endblock %}

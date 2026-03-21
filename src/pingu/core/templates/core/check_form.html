@@ -1,0 +1,318 @@
+{% extends 'base.html' %}
+{% block title %}{% if is_edit %}Edit {{ check.name }}{% else %}New Check{% endif %} – Pingu{% endblock %}
+
+{% block breadcrumb %}
+<a href="{% url 'core:dashboard' %}" class="text-text-secondary hover:text-text-primary transition-colors no-underline">dashboard</a>
+{% if is_edit %}
+<span class="text-text-muted mx-1">/</span>
+<a href="{% url 'core:check_detail' check.pk %}" class="text-text-secondary hover:text-text-primary transition-colors no-underline">{{ check.name }}</a>
+<span class="text-text-muted mx-1">/</span>
+edit
+{% else %}
+<span class="text-text-muted mx-1">/</span>
+new
+{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<div class="max-w-2xl mx-auto">
+
+  <h1 class="text-lg font-semibold mb-5">{% if is_edit %}Edit Check{% else %}New Check{% endif %}</h1>
+
+  <!-- Form-level errors -->
+  {% if form.non_field_errors %}
+  <div class="bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.2)] text-[#ef4444] px-4 py-3 rounded-lg text-sm mb-5">
+    {% for error in form.non_field_errors %}
+    <div>{{ error }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="post" action="" id="check-form">
+    {% csrf_token %}
+
+    <!-- ═══ ENDPOINT ═══ -->
+    <div class="bg-surface-800 border border-border rounded-xl p-5 sm:p-6">
+      <div class="section-label mb-4">Endpoint</div>
+
+      <!-- Name -->
+      <div class="mb-4">
+        <label for="id_name" class="block text-sm font-medium text-text-secondary mb-1.5">Name</label>
+        <input type="text" name="name" id="id_name" value="{{ form.name.value|default:'' }}"
+               placeholder="e.g. Production API" class="form-input {% if form.name.errors %}form-input-error{% endif %}">
+        {% for error in form.name.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+      </div>
+
+      <!-- URL -->
+      <div class="mb-4">
+        <label for="id_url" class="block text-sm font-medium text-text-secondary mb-1.5">URL</label>
+        <input type="url" name="url" id="id_url" value="{{ form.url.value|default:'' }}"
+               placeholder="https://api.example.com/health" class="form-input-mono {% if form.url.errors %}form-input-error{% endif %}">
+        {% for error in form.url.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+      </div>
+
+      <!-- Method (button group) -->
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-text-secondary mb-1.5">Method</label>
+        <input type="hidden" name="method" id="id_method" value="{{ form.method.value|default:'GET' }}">
+        <div class="flex flex-wrap gap-2" id="method-group">
+          {% for val, label in form.fields.method.choices %}
+          <button type="button" data-method="{{ val }}"
+                  class="px-3 py-1.5 text-xs font-mono font-medium rounded-md border transition-colors
+                  {% if form.method.value == val or form.method.value == None and val == 'GET' %}
+                  bg-surface-600 border-accent-teal text-accent-teal
+                  {% else %}
+                  bg-transparent border-border text-text-muted hover:text-text-secondary hover:border-border-light
+                  {% endif %}">
+            {{ val }}
+          </button>
+          {% endfor %}
+        </div>
+        {% for error in form.method.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+      </div>
+
+      <!-- Body (shown for POST/PUT/PATCH) -->
+      <div class="mb-4" id="body-group" style="{% if form.method.value == 'GET' or form.method.value == 'HEAD' or form.method.value == 'OPTIONS' or form.method.value == 'DELETE' or not form.method.value %}display:none;{% endif %}">
+        <label for="id_body" class="block text-sm font-medium text-text-secondary mb-1.5">Request Body</label>
+        <textarea name="body" id="id_body" rows="4"
+                  placeholder='{"key": "value"}' class="form-input-mono {% if form.body.errors %}form-input-error{% endif %}"
+                  style="resize:vertical;">{{ form.body.value|default:'' }}</textarea>
+        {% for error in form.body.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+      </div>
+
+      <!-- Headers (dynamic key-value rows) -->
+      <div>
+        <label class="block text-sm font-medium text-text-secondary mb-1.5">Headers</label>
+        <input type="hidden" name="headers" id="id_headers" value='{{ form.headers.value|default:"{}" }}'>
+        <div id="headers-list" class="space-y-2"></div>
+        <button type="button" id="add-header-btn" class="btn-ghost text-xs mt-2" style="padding:0.25rem 0.5rem;">
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M12 5v14m-7-7h14"/></svg>
+          Add Header
+        </button>
+        {% for error in form.headers.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+      </div>
+    </div>
+
+    <!-- ═══ CHECK SETTINGS ═══ -->
+    <div class="bg-surface-800 border border-border rounded-xl p-5 sm:p-6 mt-5">
+      <div class="section-label mb-4">Check Settings</div>
+
+      <!-- Expected Status Codes (tag input) -->
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-text-secondary mb-1.5">Expected Status Codes</label>
+        <input type="hidden" name="expected_statuses" id="id_expected_statuses" value="{{ form.expected_statuses.value|default:'200, 201, 204' }}">
+        <div class="flex flex-wrap items-center gap-1.5 p-2 rounded-lg bg-surface-700 border border-border min-h-[2.5rem]" id="status-tags-wrap">
+          <div id="status-tags" class="flex flex-wrap gap-1.5"></div>
+          <input type="text" id="status-tag-input" placeholder="Type code + Enter"
+                 class="bg-transparent border-none outline-none text-sm text-text-primary placeholder:text-text-muted flex-1 min-w-[6rem]">
+        </div>
+        {% for error in form.expected_statuses.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+      </div>
+
+      <!-- Timeout + Interval side-by-side -->
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <label for="id_timeout" class="block text-sm font-medium text-text-secondary mb-1.5">Timeout (seconds)</label>
+          <input type="number" name="timeout" id="id_timeout" value="{{ form.timeout.value|default:'10' }}"
+                 min="1" max="30" class="form-input {% if form.timeout.errors %}form-input-error{% endif %}">
+          {% for error in form.timeout.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+        </div>
+        <div>
+          <label for="id_interval" class="block text-sm font-medium text-text-secondary mb-1.5">Interval (minutes)</label>
+          <input type="number" name="interval" id="id_interval" value="{{ form.interval.value|default:'1' }}"
+                 min="1" max="60" class="form-input {% if form.interval.errors %}form-input-error{% endif %}">
+          {% for error in form.interval.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+        </div>
+      </div>
+
+      <!-- Active toggle -->
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="text-sm font-medium">Active</div>
+          <div class="text-xs text-text-muted mt-0.5">Enable or disable this check</div>
+        </div>
+        <input type="hidden" name="is_active_hidden" value="off">
+        <input type="checkbox" name="is_active" id="id_is_active" class="hidden"
+               {% if form.is_active.value == True or form.is_active.value == 'True' or form.is_active.value == 'on' or form.is_active.value == None %}checked{% endif %}>
+        <div class="toggle-track {% if form.is_active.value == True or form.is_active.value == 'True' or form.is_active.value == 'on' or form.is_active.value == None %}active{% endif %}"
+             data-for="id_is_active">
+          <div class="toggle-thumb"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ ALERTING ═══ -->
+    <div class="bg-surface-800 border border-border rounded-xl p-5 sm:p-6 mt-5">
+      <div class="section-label mb-4">Alerting</div>
+
+      <!-- Enable Alerts toggle -->
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <div class="text-sm font-medium">Enable Alerts</div>
+          <div class="text-xs text-text-muted mt-0.5">Send notifications when this check fails</div>
+        </div>
+        <input type="hidden" name="alert_enabled_hidden" value="off">
+        <input type="checkbox" name="alert_enabled" id="id_alert_enabled" class="hidden"
+               {% if form.alert_enabled.value == True or form.alert_enabled.value == 'True' or form.alert_enabled.value == 'on' or form.alert_enabled.value == None %}checked{% endif %}>
+        <div class="toggle-track {% if form.alert_enabled.value == True or form.alert_enabled.value == 'True' or form.alert_enabled.value == 'on' or form.alert_enabled.value == None %}active{% endif %}"
+             data-for="id_alert_enabled">
+          <div class="toggle-thumb"></div>
+        </div>
+      </div>
+
+      <!-- Alert threshold -->
+      <div class="mb-4">
+        <label for="id_alert_threshold" class="block text-sm font-medium text-text-secondary mb-1.5">Alert Threshold</label>
+        <div class="text-xs text-text-muted mb-2">Number of consecutive failures before alerting</div>
+        <input type="number" name="alert_threshold" id="id_alert_threshold" value="{{ form.alert_threshold.value|default:'2' }}"
+               min="1" class="form-input {% if form.alert_threshold.errors %}form-input-error{% endif %}" style="max-width:8rem;">
+        {% for error in form.alert_threshold.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+      </div>
+
+      <!-- Alert email -->
+      <div>
+        <label for="id_alert_email" class="block text-sm font-medium text-text-secondary mb-1.5">Alert Email</label>
+        <input type="email" name="alert_email" id="id_alert_email" value="{{ form.alert_email.value|default:'' }}"
+               placeholder="alerts@example.com" class="form-input {% if form.alert_email.errors %}form-input-error{% endif %}">
+        {% for error in form.alert_email.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+      </div>
+    </div>
+
+    <!-- ═══ Actions ═══ -->
+    <div class="flex items-center justify-end gap-3 mt-6">
+      <a href="{% if is_edit %}{% url 'core:check_detail' check.pk %}{% else %}{% url 'core:dashboard' %}{% endif %}" class="btn-secondary">Cancel</a>
+      <button type="submit" class="btn-primary">{% if is_edit %}Save Changes{% else %}Create Check{% endif %}</button>
+    </div>
+
+  </form>
+</div>
+
+<script>
+(function() {
+  // ─── Method selector ───
+  const methodInput = document.getElementById('id_method');
+  const methodGroup = document.getElementById('method-group');
+  const bodyGroup = document.getElementById('body-group');
+  const bodyMethods = ['POST', 'PUT', 'PATCH'];
+
+  methodGroup.addEventListener('click', function(e) {
+    const btn = e.target.closest('[data-method]');
+    if (!btn) return;
+    const method = btn.dataset.method;
+    methodInput.value = method;
+
+    // Update active state
+    methodGroup.querySelectorAll('button').forEach(function(b) {
+      if (b.dataset.method === method) {
+        b.className = b.className.replace(/bg-transparent border-border text-text-muted[^"]*/, '').trim();
+        b.classList.add('bg-surface-600', 'border-accent-teal', 'text-accent-teal');
+        b.classList.remove('bg-transparent', 'border-border', 'text-text-muted', 'hover:text-text-secondary', 'hover:border-border-light');
+      } else {
+        b.classList.remove('bg-surface-600', 'border-accent-teal', 'text-accent-teal');
+        b.classList.add('bg-transparent', 'border-border', 'text-text-muted');
+      }
+    });
+
+    // Show/hide body
+    bodyGroup.style.display = bodyMethods.includes(method) ? '' : 'none';
+  });
+
+  // ─── Toggle switches ───
+  document.querySelectorAll('.toggle-track[data-for]').forEach(function(track) {
+    track.addEventListener('click', function() {
+      const checkbox = document.getElementById(track.dataset.for);
+      checkbox.checked = !checkbox.checked;
+      track.classList.toggle('active', checkbox.checked);
+    });
+  });
+
+  // ─── Headers dynamic rows ───
+  const headersList = document.getElementById('headers-list');
+  const headersInput = document.getElementById('id_headers');
+  const addHeaderBtn = document.getElementById('add-header-btn');
+
+  function createHeaderRow(key, value) {
+    const row = document.createElement('div');
+    row.className = 'flex items-center gap-2';
+    row.innerHTML =
+      '<input type="text" placeholder="Header name" value="' + (key||'').replace(/"/g,'&quot;') + '" class="form-input-mono flex-1 header-key" style="font-size:0.8125rem;">' +
+      '<input type="text" placeholder="Value" value="' + (value||'').replace(/"/g,'&quot;') + '" class="form-input-mono flex-1 header-val" style="font-size:0.8125rem;">' +
+      '<button type="button" class="remove-header text-text-muted hover:text-[#ef4444] transition-colors p-1" title="Remove">' +
+        '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>' +
+      '</button>';
+    headersList.appendChild(row);
+    row.querySelector('.remove-header').addEventListener('click', function() { row.remove(); });
+  }
+
+  // Initialize from existing value
+  try {
+    const existing = JSON.parse(headersInput.value || '{}');
+    Object.entries(existing).forEach(function(entry) { createHeaderRow(entry[0], entry[1]); });
+  } catch(e) {}
+
+  addHeaderBtn.addEventListener('click', function() { createHeaderRow('', ''); });
+
+  // Serialize headers before submit
+  document.getElementById('check-form').addEventListener('submit', function() {
+    const headers = {};
+    headersList.querySelectorAll('.flex').forEach(function(row) {
+      const key = row.querySelector('.header-key').value.trim();
+      const val = row.querySelector('.header-val').value.trim();
+      if (key) headers[key] = val;
+    });
+    headersInput.value = JSON.stringify(headers);
+  });
+
+  // ─── Status code tags ───
+  const statusInput = document.getElementById('id_expected_statuses');
+  const statusTags = document.getElementById('status-tags');
+  const statusTagInput = document.getElementById('status-tag-input');
+  let codes = [];
+
+  function parseInitialCodes() {
+    const raw = statusInput.value || '';
+    codes = raw.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s && !isNaN(s); }).map(Number);
+  }
+
+  function renderTags() {
+    statusTags.innerHTML = '';
+    codes.forEach(function(code, i) {
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.innerHTML = code + '<span class="tag-remove" data-index="' + i + '">&times;</span>';
+      statusTags.appendChild(tag);
+    });
+    statusInput.value = codes.join(', ');
+  }
+
+  parseInitialCodes();
+  renderTags();
+
+  statusTagInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const val = parseInt(statusTagInput.value.trim());
+      if (!isNaN(val) && val >= 100 && val <= 599 && codes.indexOf(val) === -1) {
+        codes.push(val);
+        renderTags();
+      }
+      statusTagInput.value = '';
+    }
+    if (e.key === 'Backspace' && !statusTagInput.value && codes.length > 0) {
+      codes.pop();
+      renderTags();
+    }
+  });
+
+  statusTags.addEventListener('click', function(e) {
+    const rm = e.target.closest('.tag-remove');
+    if (!rm) return;
+    codes.splice(parseInt(rm.dataset.index), 1);
+    renderTags();
+  });
+
+})();
+</script>
+
+{% endblock %}

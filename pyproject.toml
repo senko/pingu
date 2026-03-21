@@ -4,4 +4,40 @@ version = "0.1.0"
 description = "Simple web service uptime checker"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "django>=5.2,<6",
+    "django-allauth>=65.0,<66",
+    "django-anymail[amazon-ses]>=12,<13",
+    "gunicorn>=23,<24",
+    "httpx>=0.28,<1",
+    "python-dotenv>=1,<2",
+    "whitenoise>=6,<7",
+    "asgiref>=3.8,<4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8,<9",
+    "pytest-django>=4,<5",
+    "pytest-cov>=6,<7",
+    "pytest-asyncio>=0.25,<1",
+    "ruff>=0.11,<1",
+    "respx>=0.22,<1",
+]
+
+[tool.django]
+settings_module = "pingu.settings"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "pingu.settings"
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 120
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.format]
+quote-style = "double"

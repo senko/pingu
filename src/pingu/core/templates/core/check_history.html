@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+{% load tz %}
+{% block title %}History – {{ check.name }} – Pingu{% endblock %}
+
+{% block breadcrumb %}
+/ <a href="{% url 'core:dashboard' %}" class="hover:text-text-secondary transition-colors">dashboard</a>
+/ <a href="{% url 'core:check_detail' check.pk %}" class="hover:text-text-secondary transition-colors">{{ check.name }}</a>
+/ history
+{% endblock %}
+
+{% block page_width %}max-w-5xl{% endblock %}
+
+{% block content %}
+
+<!-- Back link -->
+<a href="{% url 'core:check_detail' check.pk %}" class="text-xs text-accent-teal hover:underline">&larr; Back to {{ check.name }}</a>
+<h1 class="text-lg font-semibold mt-2">Check History</h1>
+<div class="text-sm text-text-muted font-mono mt-0.5">{{ check.name }} &middot; {{ check.method }} {{ check.url }}</div>
+
+<!-- Day navigation + filter -->
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-5 mb-4">
+  <div class="flex items-center gap-2">
+    {% if prev_day is not None %}
+    <a href="?day={{ prev_day }}&status={{ status_filter }}" class="day-nav-btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      <span class="hidden sm:inline">Older</span>
+    </a>
+    {% else %}
+    <span class="day-nav-btn opacity-30 cursor-not-allowed">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </span>
+    {% endif %}
+
+    <div class="px-3 py-1.5 bg-surface-700 border border-border rounded-lg text-sm font-medium text-center min-w-[140px]">
+      {% if day_offset == 0 %}Today &middot; {% endif %}{{ target_date|date:"M j, Y" }}
+    </div>
+
+    {% if next_day is not None %}
+    <a href="?day={{ next_day }}&status={{ status_filter }}" class="day-nav-btn">
+      <span class="hidden sm:inline">Newer</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </a>
+    {% else %}
+    <span class="day-nav-btn opacity-30 cursor-not-allowed">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </span>
+    {% endif %}
+  </div>
+
+  <div class="flex items-center gap-1.5">
+    <a href="?day={{ day_offset }}&status=all" class="filter-pill {% if status_filter == 'all' %}active{% endif %}">All</a>
+    <a href="?day={{ day_offset }}&status=failed" class="filter-pill {% if status_filter == 'failed' %}active{% endif %}">Failed</a>
+    <a href="?day={{ day_offset }}&status=success" class="filter-pill {% if status_filter == 'success' %}active{% endif %}">Success</a>
+  </div>
+</div>
+
+<!-- Day summary -->
+<div class="bg-surface-700 border border-border rounded-xl px-4 py-3 mb-4">
+  <div class="hidden sm:flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+    <div><span class="text-text-muted">Total checks:</span><span class="text-text-primary font-mono ml-1">{{ summary.total }}</span></div>
+    <div><span class="text-text-muted">Successful:</span><span class="text-[#22c55e] font-mono ml-1">{{ summary.success }}</span></div>
+    <div><span class="text-text-muted">Failed:</span><span class="text-[#ef4444] font-mono ml-1">{{ summary.failed }}</span></div>
+    <div><span class="text-text-muted">Uptime:</span>
+      <span class="font-mono ml-1
+        {% if summary.uptime_pct >= 99.9 %}text-[#22c55e]
+        {% elif summary.uptime_pct >= 95 %}text-[#f59e0b]
+        {% else %}text-[#ef4444]{% endif %}
+      ">{{ summary.uptime_pct }}%</span>
+    </div>
+    {% if summary.avg_response_time %}
+    <div><span class="text-text-muted">Avg response:</span><span class="text-text-primary font-mono ml-1">{{ summary.avg_response_time }}s</span></div>
+    {% endif %}
+  </div>
+  <div class="sm:hidden space-y-1.5 text-sm">
+    <div class="flex justify-between"><span class="text-text-muted">Total checks</span><span class="font-mono">{{ summary.total }}</span></div>
+    <div class="flex justify-between"><span class="text-text-muted">Successful</span><span class="text-[#22c55e] font-mono">{{ summary.success }}</span></div>
+    <div class="flex justify-between"><span class="text-text-muted">Failed</span><span class="text-[#ef4444] font-mono">{{ summary.failed }}</span></div>
+    <div class="flex justify-between"><span class="text-text-muted">Uptime</span><span class="font-mono">{{ summary.uptime_pct }}%</span></div>
+    {% if summary.avg_response_time %}
+    <div class="flex justify-between"><span class="text-text-muted">Avg response</span><span class="font-mono">{{ summary.avg_response_time }}s</span></div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Results table -->
+<div class="bg-surface-800 border border-border rounded-xl overflow-hidden">
+  <!-- Column headers (md+) -->
+  <div class="hidden md:grid grid-cols-12 gap-3 px-5 py-2.5 text-[0.6875rem] font-medium text-text-muted uppercase tracking-wider border-b border-border">
+    <div class="col-span-3">Time</div>
+    <div class="col-span-2">Status Code</div>
+    <div class="col-span-3">Response Time</div>
+    <div class="col-span-4">Details</div>
+  </div>
+
+  <div class="divide-y divide-border/30">
+    {% for result in results %}
+    <div class="result-row px-4 sm:px-5 py-2 md:grid md:grid-cols-12 md:gap-3 md:items-center"
+         {% if not result.is_success %}style="background:rgba(239,68,68,0.025);"{% endif %}>
+
+      <div class="md:col-span-3 flex items-center justify-between md:block">
+        <span class="text-sm font-mono text-text-primary">{{ result.timestamp|time:"H:i:s" }}</span>
+        <!-- Mobile badge -->
+        {% if result.is_success %}
+        <span class="badge badge-up md:hidden">{{ result.status_code|default:"OK" }}</span>
+        {% else %}
+        <span class="badge badge-down md:hidden">{{ result.status_code|default:"Timeout" }}</span>
+        {% endif %}
+      </div>
+
+      <div class="md:col-span-2 hidden md:block">
+        {% if result.is_success %}
+        <span class="badge badge-up">{{ result.status_code|default:"OK" }}</span>
+        {% else %}
+        <span class="badge badge-down">{{ result.status_code|default:"Timeout" }}</span>
+        {% endif %}
+      </div>
+
+      <div class="md:col-span-3 hidden md:block">
+        {% if result.response_time %}
+        <span class="text-sm font-mono {% if not result.is_success %}text-[#ef4444]{% elif result.response_time > 2 %}text-[#f59e0b]{% else %}text-text-primary{% endif %}">{{ result.response_time }}s</span>
+        {% else %}
+        <span class="text-sm font-mono text-[#ef4444]">{{ check.timeout }}.000s</span>
+        {% endif %}
+      </div>
+
+      <div class="md:col-span-4 hidden md:block">
+        {% if result.error_message %}
+        <span class="text-xs text-text-muted">{{ result.error_message }}</span>
+        {% else %}
+        <span class="text-xs text-text-muted">&mdash;</span>
+        {% endif %}
+      </div>
+    </div>
+    {% empty %}
+    <div class="px-5 py-8 text-center text-text-muted text-sm">
+      No results for this day{% if status_filter != 'all' %} (filter: {{ status_filter }}){% endif %}.
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Footer -->
+<div class="flex items-center justify-between text-xs text-text-muted py-6">
+  <span>Pingu v1.0</span>
+  <a href="{% url 'core:dashboard' %}" class="text-accent-teal hover:underline">&larr; Back to dashboard</a>
+</div>
+
+{% endblock %}

@@ -8,3 +8,23 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Database
+*.sqlite3
+db.sqlite3
+
+# Environment
+.env
+
+# Static build output
+static/css/output.css
+staticfiles/
+
+# Node
+node_modules/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

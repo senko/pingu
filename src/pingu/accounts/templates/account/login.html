@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign in – Pingu</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --surface-900: #0a0c10;
+      --surface-800: #0f1218;
+      --surface-700: #161a22;
+      --surface-600: #1c2130;
+      --border: #1e2433;
+      --border-light: #2a3148;
+      --text-primary: #e2e8f0;
+      --text-secondary: #8896ab;
+      --text-muted: #556178;
+      --accent-teal: #2dd4a8;
+    }
+
+    body {
+      font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+      background: var(--surface-900);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      pointer-events: none;
+      opacity: 0.025;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    .card {
+      max-width: 24rem;
+      width: 100%;
+      background: var(--surface-800);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+    }
+    @media (min-width: 640px) { .card { padding: 2rem; } }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-bottom: 1.75rem;
+    }
+    .logo-text {
+      font-size: 1.125rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .title {
+      text-align: center;
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      color: var(--text-primary);
+    }
+
+    .error-banner {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.2);
+      color: #ef4444;
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.5rem;
+      font-size: 0.8125rem;
+      margin-bottom: 1rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 0.375rem;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="password"] {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      background: var(--surface-700);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      color: var(--text-primary);
+      font-size: 0.875rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 150ms ease;
+    }
+    input:focus {
+      border-color: var(--accent-teal);
+    }
+    input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .btn-submit {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 0.625rem 1rem;
+      margin-top: 0.25rem;
+      background: var(--accent-teal);
+      color: var(--surface-900);
+      font-size: 0.875rem;
+      font-weight: 600;
+      font-family: inherit;
+      border: none;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: background 150ms ease, box-shadow 150ms ease;
+    }
+    .btn-submit:hover {
+      background: #5eead4;
+      box-shadow: 0 0 16px rgba(45,212,168,0.25);
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 1.5rem;
+      font-size: 0.6875rem;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div>
+    <div class="card">
+      <!-- Logo -->
+      <div class="logo">
+        <svg width="32" height="32" viewBox="0 0 28 28" fill="none">
+          <circle cx="14" cy="14" r="13" stroke="#2dd4a8" stroke-width="2" fill="rgba(45,212,168,0.08)"/>
+          <path d="M9 14.5l3 3 7-7" stroke="#2dd4a8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="logo-text">Pingu</span>
+      </div>
+
+      <h1 class="title">Sign in to Pingu</h1>
+
+      <!-- Error banner -->
+      {% if form.errors %}
+      <div class="error-banner">
+        {% if form.non_field_errors %}
+          {% for error in form.non_field_errors %}
+            <div>{{ error }}</div>
+          {% endfor %}
+        {% else %}
+          <div>Please correct the errors below.</div>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <form method="post" action="">
+        {% csrf_token %}
+
+        <div class="form-group">
+          <label for="id_login">Email</label>
+          <input type="email" name="login" id="id_login" value="{{ form.login.value|default:'' }}"
+                 placeholder="you@example.com" autocomplete="email" autofocus
+                 style="{% if form.login.errors %}border-color:#ef4444;{% endif %}">
+          {% if form.login.errors %}
+            {% for error in form.login.errors %}
+              <div style="color:#ef4444;font-size:0.75rem;margin-top:0.25rem;">{{ error }}</div>
+            {% endfor %}
+          {% endif %}
+        </div>
+
+        <div class="form-group">
+          <label for="id_password">Password</label>
+          <input type="password" name="password" id="id_password"
+                 placeholder="••••••••" autocomplete="current-password"
+                 style="{% if form.password.errors %}border-color:#ef4444;{% endif %}">
+          {% if form.password.errors %}
+            {% for error in form.password.errors %}
+              <div style="color:#ef4444;font-size:0.75rem;margin-top:0.25rem;">{{ error }}</div>
+            {% endfor %}
+          {% endif %}
+        </div>
+
+        {% if redirect_field_value %}
+        <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
+        {% endif %}
+
+        <button type="submit" class="btn-submit">Sign in</button>
+      </form>
+    </div>
+
+    <div class="footer">Pingu v1.0</div>
+  </div>
+</body>
+</html>

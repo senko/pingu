@@ -1,0 +1,209 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard – Pingu{% endblock %}
+
+{% block nav_actions %}
+<a href="{% url 'core:check_create' %}" class="btn-primary" style="padding:0.375rem 0.75rem;font-size:0.75rem;">
+  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" d="M12 5v14m-7-7h14"/></svg>
+  New Check
+</a>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Summary cards (visible below md) ── -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6 md:hidden">
+  <div class="bg-surface-800 border border-border rounded-lg px-4 py-3">
+    <div class="text-text-muted text-[0.6875rem] font-medium uppercase tracking-wider">Monitored</div>
+    <div class="text-xl font-semibold mt-0.5">{{ total }}</div>
+  </div>
+  <div class="bg-surface-800 border border-border rounded-lg px-4 py-3">
+    <div class="text-text-muted text-[0.6875rem] font-medium uppercase tracking-wider">Up</div>
+    <div class="text-xl font-semibold mt-0.5 text-[#22c55e]">{{ up_count }}</div>
+  </div>
+  <div class="bg-surface-800 border border-border rounded-lg px-4 py-3">
+    <div class="text-text-muted text-[0.6875rem] font-medium uppercase tracking-wider">Down</div>
+    <div class="text-xl font-semibold mt-0.5 text-[#ef4444]">{{ down_count }}</div>
+  </div>
+  <div class="bg-surface-800 border border-border rounded-lg px-4 py-3">
+    <div class="text-text-muted text-[0.6875rem] font-medium uppercase tracking-wider">Paused</div>
+    <div class="text-xl font-semibold mt-0.5 text-text-secondary">{{ paused_count }}</div>
+  </div>
+</div>
+
+<!-- ── Checks table card ── -->
+<div class="bg-surface-800 border border-border rounded-xl overflow-hidden">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between px-5 py-3.5 border-b border-border">
+    <div class="flex items-center gap-4">
+      <h2 class="text-sm font-semibold">All Checks</h2>
+      <!-- Summary counts (md+) -->
+      <div class="hidden md:flex items-center gap-3 text-xs text-text-muted">
+        <span>{{ total }} monitored</span>
+        <span class="text-[#22c55e]">{{ up_count }} up</span>
+        {% if down_count %}<span class="text-[#ef4444]">{{ down_count }} down</span>{% endif %}
+        {% if paused_count %}<span>{{ paused_count }} paused</span>{% endif %}
+      </div>
+    </div>
+    <span class="text-xs text-text-muted">Last run: {{ last_run_ago }}</span>
+  </div>
+
+  <!-- Column headers (lg only) -->
+  <div class="hidden lg:grid grid-cols-12 gap-4 px-5 py-2 text-[0.6875rem] font-medium uppercase tracking-wider text-text-muted border-b border-border">
+    <div class="col-span-4">Service</div>
+    <div class="col-span-1">Status</div>
+    <div class="col-span-4">Today’s Uptime</div>
+    <div class="col-span-2">Last Checked</div>
+    <div class="col-span-1 text-right">Actions</div>
+  </div>
+
+  <!-- Rows -->
+  {% for item in check_data %}
+  <a href="{% url 'core:check_detail' item.check.pk %}"
+     class="check-row {% if item.status == 'paused' %}opacity-50{% endif %}"
+     {% if item.status == 'down' %}style="background:rgba(239,68,68,0.03);"{% endif %}>
+
+    <!-- ─ LG layout ─ -->
+    <div class="hidden lg:grid grid-cols-12 gap-4 items-center px-5 py-3">
+      <!-- Service name + url -->
+      <div class="col-span-4 min-w-0">
+        <div class="flex items-center gap-2 min-w-0">
+          {% if item.status == 'up' %}
+          <span class="w-2 h-2 rounded-full bg-[#22c55e] flex-shrink-0"></span>
+          {% elif item.status == 'down' %}
+          <span class="w-2 h-2 rounded-full bg-[#ef4444] flex-shrink-0 pulse-down"></span>
+          {% else %}
+          <span class="w-2 h-2 rounded-full bg-[#6b7280] flex-shrink-0"></span>
+          {% endif %}
+          <span class="text-sm font-medium truncate">{{ item.check.name }}</span>
+          {% if item.check.method != 'GET' %}
+          <span class="text-[0.625rem] font-mono font-medium px-1.5 py-0.5 rounded bg-surface-600 text-text-muted flex-shrink-0">{{ item.check.method }}</span>
+          {% endif %}
+        </div>
+        <div class="text-xs text-text-muted font-mono truncate mt-0.5 ml-4">{{ item.check.url }}</div>
+      </div>
+
+      <!-- Status badge -->
+      <div class="col-span-1">
+        {% if item.status == 'up' %}
+        <span class="badge badge-up">UP</span>
+        {% elif item.status == 'down' %}
+        <span class="badge badge-down"><span class="w-1.5 h-1.5 rounded-full bg-[#ef4444] pulse-down"></span>DOWN</span>
+        {% elif item.status == 'paused' %}
+        <span class="badge badge-paused">PAUSED</span>
+        {% else %}
+        <span class="badge badge-unknown">N/A</span>
+        {% endif %}
+      </div>
+
+      <!-- Uptime strip + percentage -->
+      <div class="col-span-4">
+        <div class="flex items-center gap-3">
+          <div class="uptime-strip flex-1">
+            {% for bar in item.hourly_data %}
+            <div class="avail-bar bg-{{ bar.color }}" style="flex:1;"></div>
+            {% endfor %}
+          </div>
+          <span class="text-xs font-medium w-12 text-right
+            {% if item.uptime_today == None %}text-text-muted
+            {% elif item.uptime_today >= 99.9 %}text-status-up
+            {% elif item.uptime_today >= 99.0 %}text-status-warn
+            {% elif item.uptime_today >= 95.0 %}text-status-orange
+            {% else %}text-status-down{% endif %}
+          ">
+            {% if item.uptime_today != None %}{{ item.uptime_today }}%{% else %}&mdash;{% endif %}
+          </span>
+        </div>
+      </div>
+
+      <!-- Last checked -->
+      <div class="col-span-2">
+        <div class="text-xs text-text-secondary">{{ item.last_checked_ago }}</div>
+        <div class="text-[0.6875rem] text-text-muted mt-0.5">{{ item.last_status_change }}</div>
+      </div>
+
+      <!-- Actions (Check Now) -->
+      <div class="col-span-1 flex justify-end" onclick="event.preventDefault();event.stopPropagation();">
+        <form method="post" action="{% url 'core:check_run' item.check.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn-check-now" {% if item.status == 'paused' %}disabled{% endif %}>
+            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3l14 9-14 9V3z"/></svg>
+            Check
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ─ MD layout (hidden on lg) ─ -->
+    <div class="hidden md:flex lg:hidden items-center gap-3 px-5 py-3">
+      {% if item.status == 'up' %}
+      <span class="w-2 h-2 rounded-full bg-[#22c55e] flex-shrink-0"></span>
+      {% elif item.status == 'down' %}
+      <span class="w-2 h-2 rounded-full bg-[#ef4444] flex-shrink-0 pulse-down"></span>
+      {% else %}
+      <span class="w-2 h-2 rounded-full bg-[#6b7280] flex-shrink-0"></span>
+      {% endif %}
+      <div class="flex-1 min-w-0">
+        <span class="text-sm font-medium truncate">{{ item.check.name }}</span>
+        <span class="text-xs text-text-muted font-mono ml-2 truncate">{{ item.check.url }}</span>
+      </div>
+      {% if item.status == 'up' %}
+      <span class="badge badge-up">UP</span>
+      {% elif item.status == 'down' %}
+      <span class="badge badge-down"><span class="w-1.5 h-1.5 rounded-full bg-[#ef4444] pulse-down"></span>DOWN</span>
+      {% elif item.status == 'paused' %}
+      <span class="badge badge-paused">PAUSED</span>
+      {% else %}
+      <span class="badge badge-unknown">N/A</span>
+      {% endif %}
+      <span class="text-xs font-medium
+        {% if item.uptime_today == None %}text-text-muted
+        {% elif item.uptime_today >= 99.9 %}text-status-up
+        {% elif item.uptime_today >= 99.0 %}text-status-warn
+        {% elif item.uptime_today >= 95.0 %}text-status-orange
+        {% else %}text-status-down{% endif %}
+      ">
+        {% if item.uptime_today != None %}{{ item.uptime_today }}%{% else %}&mdash;{% endif %}
+      </span>
+    </div>
+
+    <!-- ─ < MD layout ─ -->
+    <div class="flex md:hidden items-center gap-3 px-4 py-3">
+      {% if item.status == 'up' %}
+      <span class="w-2 h-2 rounded-full bg-[#22c55e] flex-shrink-0"></span>
+      {% elif item.status == 'down' %}
+      <span class="w-2 h-2 rounded-full bg-[#ef4444] flex-shrink-0 pulse-down"></span>
+      {% else %}
+      <span class="w-2 h-2 rounded-full bg-[#6b7280] flex-shrink-0"></span>
+      {% endif %}
+      <span class="text-sm font-medium truncate flex-1">{{ item.check.name }}</span>
+      {% if item.status == 'up' %}
+      <span class="badge badge-up">UP</span>
+      {% elif item.status == 'down' %}
+      <span class="badge badge-down"><span class="w-1.5 h-1.5 rounded-full bg-[#ef4444] pulse-down"></span>DOWN</span>
+      {% elif item.status == 'paused' %}
+      <span class="badge badge-paused">PAUSED</span>
+      {% else %}
+      <span class="badge badge-unknown">N/A</span>
+      {% endif %}
+    </div>
+
+  </a>
+  {% empty %}
+  <div class="px-5 py-12 text-center">
+    <div class="text-text-muted text-sm">No checks yet</div>
+    <a href="{% url 'core:check_create' %}" class="btn-primary mt-4 inline-flex">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M12 5v14m-7-7h14"/></svg>
+      Create your first check
+    </a>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ── Footer ── -->
+<div class="mt-8 pb-4 flex items-center justify-between text-[0.6875rem] text-text-muted">
+  <span>Pingu v1.0</span>
+  <span>{{ total }} checks &middot; {{ down_count }} incident{{ down_count|pluralize }} active</span>
+</div>
+
+{% endblock %}
