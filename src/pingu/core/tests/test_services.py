@@ -86,6 +86,7 @@ def test_execute_check_post_with_body(db, user):
 
     assert result.is_success is True
     assert result.status_code == 201
+    assert respx.calls[0].request.content == b'{"key": "value"}'
 
 
 @pytest.mark.django_db
@@ -560,46 +561,30 @@ def test_monthly_availability_has_data_from_results(check):
 
 
 @pytest.mark.django_db
+@respx.mock
 def test_run_single_check(check):
-    fake_result = CheckResult(
-        check=check,
-        timestamp=timezone.now(),
-        status_code=200,
-        response_time=Decimal("0.123"),
-        is_success=True,
-    )
-    with (
-        patch("pingu.core.services.async_to_sync") as mock_ats,
-        patch("pingu.core.services.evaluate_check_result") as mock_eval,
-    ):
-        mock_ats.return_value = lambda c: fake_result
-        # We need the result to have a pk after save, so patch save too
-        with patch.object(CheckResult, "save"):
-            result = run_single_check(check)
+    respx.get("https://example.com").mock(return_value=httpx.Response(200, text="OK"))
 
-    assert result.status_code == 200
+    with patch("pingu.core.services.evaluate_check_result") as mock_eval:
+        result = run_single_check(check)
+
     assert result.is_success is True
-    mock_eval.assert_called_once_with(fake_result)
+    assert result.status_code == 200
+    assert result.pk is not None  # saved to DB
+    assert CheckResult.objects.filter(pk=result.pk).exists()
+    mock_eval.assert_called_once_with(result)
 
 
 @pytest.mark.django_db
+@respx.mock
 def test_run_single_check_failure(check):
-    fake_result = CheckResult(
-        check=check,
-        timestamp=timezone.now(),
-        status_code=None,
-        response_time=None,
-        is_success=False,
-        error_message="Connection refused",
-    )
-    with (
-        patch("pingu.core.services.async_to_sync") as mock_ats,
-        patch("pingu.core.services.evaluate_check_result") as mock_eval,
-    ):
-        mock_ats.return_value = lambda c: fake_result
-        with patch.object(CheckResult, "save"):
-            result = run_single_check(check)
+    respx.get("https://example.com").mock(side_effect=httpx.ConnectError("Connection refused"))
+
+    with patch("pingu.core.services.evaluate_check_result") as mock_eval:
+        result = run_single_check(check)
 
     assert result.is_success is False
-    assert result.error_message == "Connection refused"
-    mock_eval.assert_called_once_with(fake_result)
+    assert "Connection refused" in result.error_message
+    assert result.pk is not None  # saved to DB
+    assert CheckResult.objects.filter(pk=result.pk).exists()
+    mock_eval.assert_called_once_with(result)

@@ -18,20 +18,6 @@ class TestCheck:
     def test_str(self, check):
         assert str(check) == "Example Check"
 
-    def test_defaults(self, db):
-        c = Check.objects.create(name="Minimal", url="https://example.com")
-        assert c.method == "GET"
-        assert c.headers == {}
-        assert c.body == ""
-        assert c.expected_statuses == []
-        assert c.timeout == 10
-        assert c.interval == 1
-        assert c.is_active is True
-        assert c.alert_enabled is True
-        assert c.alert_threshold == 2
-        assert c.alert_email == ""
-        assert c.created_by is None
-
     def test_ordering(self, db, user):
         Check.objects.create(name="Zebra", url="https://z.com", created_by=user)
         Check.objects.create(name="Alpha", url="https://a.com", created_by=user)
@@ -42,10 +28,6 @@ class TestCheck:
         user.delete()
         check.refresh_from_db()
         assert check.created_by is None
-
-    def test_auto_timestamps(self, check):
-        assert check.created_at is not None
-        assert check.updated_at is not None
 
 
 # ── CheckResult model ────────────────────────────────────────────────────

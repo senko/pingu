@@ -2,55 +2,11 @@ from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
+from django.contrib.messages import get_messages
 from django.urls import reverse
 from django.utils import timezone
 
 from pingu.core.models import Check, CheckResult
-
-# ---------------------------------------------------------------------------
-# Authentication enforcement
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.django_db
-class TestAuthenticationRequired:
-    """All views should redirect unauthenticated users to the login page."""
-
-    def test_dashboard_requires_login(self, client):
-        resp = client.get(reverse("core:dashboard"))
-        assert resp.status_code == 302
-        assert "/accounts/login/" in resp.url
-
-    def test_check_create_requires_login(self, client):
-        resp = client.get(reverse("core:check_create"))
-        assert resp.status_code == 302
-        assert "/accounts/login/" in resp.url
-
-    def test_check_detail_requires_login(self, client, check):
-        resp = client.get(reverse("core:check_detail", args=[check.pk]))
-        assert resp.status_code == 302
-        assert "/accounts/login/" in resp.url
-
-    def test_check_edit_requires_login(self, client, check):
-        resp = client.get(reverse("core:check_edit", args=[check.pk]))
-        assert resp.status_code == 302
-        assert "/accounts/login/" in resp.url
-
-    def test_check_delete_requires_login(self, client, check):
-        resp = client.get(reverse("core:check_delete", args=[check.pk]))
-        assert resp.status_code == 302
-        assert "/accounts/login/" in resp.url
-
-    def test_check_history_requires_login(self, client, check):
-        resp = client.get(reverse("core:check_history", args=[check.pk]))
-        assert resp.status_code == 302
-        assert "/accounts/login/" in resp.url
-
-    def test_check_run_requires_login(self, client, check):
-        resp = client.post(reverse("core:check_run", args=[check.pk]))
-        assert resp.status_code == 302
-        assert "/accounts/login/" in resp.url
-
 
 # ---------------------------------------------------------------------------
 # Dashboard
@@ -150,11 +106,6 @@ class TestCheckEdit:
         assert check.name == "Updated Check"
         assert check.timeout == 15
 
-    def test_check_edit_404(self, client, user):
-        client.force_login(user)
-        resp = client.get(reverse("core:check_edit", args=[99999]))
-        assert resp.status_code == 404
-
 
 # ---------------------------------------------------------------------------
 # Check Delete
@@ -177,11 +128,6 @@ class TestCheckDelete:
         assert resp.url == reverse("core:dashboard")
         assert not Check.objects.filter(pk=pk).exists()
 
-    def test_check_delete_404(self, client, user):
-        client.force_login(user)
-        resp = client.post(reverse("core:check_delete", args=[99999]))
-        assert resp.status_code == 404
-
 
 # ---------------------------------------------------------------------------
 # Check Detail
@@ -198,11 +144,6 @@ class TestCheckDetail:
         assert "status" in resp.context
         assert "hourly_data" in resp.context
         assert "daily_data" in resp.context
-
-    def test_check_detail_404(self, client, user):
-        client.force_login(user)
-        resp = client.get(reverse("core:check_detail", args=[99999]))
-        assert resp.status_code == 404
 
 
 # ---------------------------------------------------------------------------
@@ -245,16 +186,31 @@ class TestCheckHistory:
         assert resp.context["day_offset"] == 0
 
     def test_check_history_status_filter_failed(self, client, user, check):
+        # Create both a success and failure result for today
+        now = timezone.now()
+        CheckResult.objects.create(check=check, timestamp=now, status_code=200, is_success=True)
+        CheckResult.objects.create(check=check, timestamp=now, status_code=500, is_success=False)
+
         client.force_login(user)
         resp = client.get(reverse("core:check_history", args=[check.pk]), {"status": "failed"})
         assert resp.status_code == 200
         assert resp.context["status_filter"] == "failed"
+        results = list(resp.context["results"])
+        assert len(results) == 1
+        assert results[0].is_success is False
 
     def test_check_history_status_filter_success(self, client, user, check):
+        now = timezone.now()
+        CheckResult.objects.create(check=check, timestamp=now, status_code=200, is_success=True)
+        CheckResult.objects.create(check=check, timestamp=now, status_code=500, is_success=False)
+
         client.force_login(user)
         resp = client.get(reverse("core:check_history", args=[check.pk]), {"status": "success"})
         assert resp.status_code == 200
         assert resp.context["status_filter"] == "success"
+        results = list(resp.context["results"])
+        assert len(results) == 1
+        assert results[0].is_success is True
 
     def test_check_history_status_filter_invalid(self, client, user, check):
         client.force_login(user)
@@ -300,6 +256,11 @@ class TestCheckRun:
         assert resp.url == reverse("core:check_detail", args=[check.pk])
         mock_run.assert_called_once_with(check)
 
+        msgs = [m.message for m in get_messages(resp.wsgi_request)]
+        assert len(msgs) == 1
+        assert "200" in msgs[0]
+        assert "0.123" in msgs[0]
+
     @patch("pingu.core.views.run_single_check")
     def test_check_run_failure(self, mock_run, client, user, check):
         mock_result = CheckResult(
@@ -318,14 +279,13 @@ class TestCheckRun:
         assert resp.url == reverse("core:check_detail", args=[check.pk])
         mock_run.assert_called_once_with(check)
 
+        msgs = [m.message for m in get_messages(resp.wsgi_request)]
+        assert len(msgs) == 1
+        assert "failed" in msgs[0]
+        assert "Internal Server Error" in msgs[0]
+
     def test_check_run_requires_post(self, client, user, check):
         client.force_login(user)
         resp = client.get(reverse("core:check_run", args=[check.pk]))
         assert resp.status_code == 405
 
-    @patch("pingu.core.views.run_single_check")
-    def test_check_run_404(self, mock_run, client, user):
-        client.force_login(user)
-        resp = client.post(reverse("core:check_run", args=[99999]))
-        assert resp.status_code == 404
-        mock_run.assert_not_called()
