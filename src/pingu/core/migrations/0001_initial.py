@@ -7,7 +7,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
@@ -16,59 +15,115 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Check',
+            name="Check",
             fields=[
-                ('id', models.AutoField(primary_key=True, serialize=False)),
-                ('name', models.CharField(max_length=255)),
-                ('url', models.URLField(max_length=2048)),
-                ('method', models.CharField(choices=[('GET', 'GET'), ('POST', 'POST'), ('PUT', 'PUT'), ('PATCH', 'PATCH'), ('DELETE', 'DELETE'), ('HEAD', 'HEAD'), ('OPTIONS', 'OPTIONS')], default='GET', max_length=7)),
-                ('headers', models.JSONField(blank=True, default=dict)),
-                ('body', models.TextField(blank=True, default='')),
-                ('expected_statuses', models.JSONField(blank=True, default=list)),
-                ('timeout', models.PositiveIntegerField(default=10, validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(30)])),
-                ('interval', models.PositiveIntegerField(default=1, validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(60)])),
-                ('is_active', models.BooleanField(default=True)),
-                ('alert_enabled', models.BooleanField(default=True)),
-                ('alert_threshold', models.PositiveIntegerField(default=2, validators=[django.core.validators.MinValueValidator(1)])),
-                ('alert_email', models.EmailField(blank=True, default='', max_length=254)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('created_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL)),
+                ("id", models.AutoField(primary_key=True, serialize=False)),
+                ("name", models.CharField(max_length=255)),
+                ("url", models.URLField(max_length=2048)),
+                (
+                    "method",
+                    models.CharField(
+                        choices=[
+                            ("GET", "GET"),
+                            ("POST", "POST"),
+                            ("PUT", "PUT"),
+                            ("PATCH", "PATCH"),
+                            ("DELETE", "DELETE"),
+                            ("HEAD", "HEAD"),
+                            ("OPTIONS", "OPTIONS"),
+                        ],
+                        default="GET",
+                        max_length=7,
+                    ),
+                ),
+                ("headers", models.JSONField(blank=True, default=dict)),
+                ("body", models.TextField(blank=True, default="")),
+                ("expected_statuses", models.JSONField(blank=True, default=list)),
+                (
+                    "timeout",
+                    models.PositiveIntegerField(
+                        default=10,
+                        validators=[
+                            django.core.validators.MinValueValidator(1),
+                            django.core.validators.MaxValueValidator(30),
+                        ],
+                    ),
+                ),
+                (
+                    "interval",
+                    models.PositiveIntegerField(
+                        default=1,
+                        validators=[
+                            django.core.validators.MinValueValidator(1),
+                            django.core.validators.MaxValueValidator(60),
+                        ],
+                    ),
+                ),
+                ("is_active", models.BooleanField(default=True)),
+                ("alert_enabled", models.BooleanField(default=True)),
+                (
+                    "alert_threshold",
+                    models.PositiveIntegerField(default=2, validators=[django.core.validators.MinValueValidator(1)]),
+                ),
+                ("alert_email", models.EmailField(blank=True, default="", max_length=254)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "created_by",
+                    models.ForeignKey(
+                        blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL
+                    ),
+                ),
             ],
             options={
-                'ordering': ['name'],
+                "ordering": ["name"],
             },
         ),
         migrations.CreateModel(
-            name='CheckResult',
+            name="CheckResult",
             fields=[
-                ('id', models.AutoField(primary_key=True, serialize=False)),
-                ('timestamp', models.DateTimeField(db_index=True)),
-                ('status_code', models.PositiveIntegerField(blank=True, null=True)),
-                ('response_time', models.DecimalField(blank=True, decimal_places=3, max_digits=6, null=True)),
-                ('is_success', models.BooleanField()),
-                ('error_message', models.TextField(blank=True, default='')),
-                ('check', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='results', to='core.check')),
+                ("id", models.AutoField(primary_key=True, serialize=False)),
+                ("timestamp", models.DateTimeField(db_index=True)),
+                ("status_code", models.PositiveIntegerField(blank=True, null=True)),
+                ("response_time", models.DecimalField(blank=True, decimal_places=3, max_digits=6, null=True)),
+                ("is_success", models.BooleanField()),
+                ("error_message", models.TextField(blank=True, default="")),
+                (
+                    "check",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE, related_name="results", to="core.check"
+                    ),
+                ),
             ],
             options={
-                'ordering': ['-timestamp'],
+                "ordering": ["-timestamp"],
             },
         ),
         migrations.CreateModel(
-            name='Incident',
+            name="Incident",
             fields=[
-                ('id', models.AutoField(primary_key=True, serialize=False)),
-                ('started_at', models.DateTimeField(db_index=True)),
-                ('ended_at', models.DateTimeField(blank=True, null=True)),
-                ('check', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='incidents', to='core.check')),
-                ('threshold_result', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='core.checkresult')),
+                ("id", models.AutoField(primary_key=True, serialize=False)),
+                ("started_at", models.DateTimeField(db_index=True)),
+                ("ended_at", models.DateTimeField(blank=True, null=True)),
+                (
+                    "check",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE, related_name="incidents", to="core.check"
+                    ),
+                ),
+                (
+                    "threshold_result",
+                    models.ForeignKey(
+                        blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to="core.checkresult"
+                    ),
+                ),
             ],
             options={
-                'ordering': ['-started_at'],
+                "ordering": ["-started_at"],
             },
         ),
         migrations.AddIndex(
-            model_name='checkresult',
-            index=models.Index(fields=['check', 'timestamp'], name='core_checkr_check_i_f80a59_idx'),
+            model_name="checkresult",
+            index=models.Index(fields=["check", "timestamp"], name="core_checkr_check_i_f80a59_idx"),
         ),
     ]

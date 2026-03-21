@@ -5,28 +5,41 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
-        ('core', '0001_initial'),
+        ("core", "0001_initial"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='AlertLog',
+            name="AlertLog",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('alert_type', models.CharField(choices=[('down', 'Down'), ('up', 'Up')], max_length=4)),
-                ('recipient', models.EmailField(max_length=254)),
-                ('sent_at', models.DateTimeField(auto_now_add=True)),
-                ('success', models.BooleanField(default=True)),
-                ('error', models.TextField(blank=True, default='')),
-                ('check', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='alert_logs', to='core.check')),
-                ('incident', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='alert_logs', to='core.incident')),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("alert_type", models.CharField(choices=[("down", "Down"), ("up", "Up")], max_length=4)),
+                ("recipient", models.EmailField(max_length=254)),
+                ("sent_at", models.DateTimeField(auto_now_add=True)),
+                ("success", models.BooleanField(default=True)),
+                ("error", models.TextField(blank=True, default="")),
+                (
+                    "check",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE, related_name="alert_logs", to="core.check"
+                    ),
+                ),
+                (
+                    "incident",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="alert_logs",
+                        to="core.incident",
+                    ),
+                ),
             ],
             options={
-                'ordering': ['-sent_at'],
+                "ordering": ["-sent_at"],
             },
         ),
     ]

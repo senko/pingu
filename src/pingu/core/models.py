@@ -62,9 +62,7 @@ class CheckResult(models.Model):
     )
     timestamp = models.DateTimeField(db_index=True)
     status_code = models.PositiveIntegerField(null=True, blank=True)
-    response_time = models.DecimalField(
-        max_digits=6, decimal_places=3, null=True, blank=True
-    )
+    response_time = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True)
     is_success = models.BooleanField()
     error_message = models.TextField(blank=True, default="")
 
@@ -86,9 +84,7 @@ class Incident(models.Model):
     )
     started_at = models.DateTimeField(db_index=True)
     ended_at = models.DateTimeField(null=True, blank=True)
-    threshold_result = models.ForeignKey(
-        CheckResult, on_delete=models.SET_NULL, null=True, blank=True
-    )
+    threshold_result = models.ForeignKey(CheckResult, on_delete=models.SET_NULL, null=True, blank=True)
 
     class Meta:
         ordering = ["-started_at"]

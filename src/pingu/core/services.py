@@ -77,7 +77,7 @@ async def execute_checks(checks: list[Check]) -> list[CheckResult]:
             asyncio.gather(*tasks, return_exceptions=True),
             timeout=float(global_timeout),
         )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.error("Global timeout (%ds) exceeded while running checks", global_timeout)
         # Return whatever completed; create timeout results for the rest
         results = []
@@ -179,10 +179,7 @@ def get_consecutive_failures(check: Check) -> int:
 def get_checks_due() -> list[Check]:
     """Return active checks whose interval has elapsed since their last result."""
     now = timezone.now()
-    checks = (
-        Check.objects.filter(is_active=True)
-        .annotate(last_run=Max("results__timestamp"))
-    )
+    checks = Check.objects.filter(is_active=True).annotate(last_run=Max("results__timestamp"))
     due: list[Check] = []
     for check in checks:
         if check.last_run is None:
@@ -229,9 +226,7 @@ def get_daily_availability(check: Check, target_date: date) -> dict:
 
     incidents = check.incidents.filter(
         started_at__lt=day_end,
-    ).filter(
-        Q(ended_at__gt=day_start) | Q(ended_at__isnull=True)
-    )
+    ).filter(Q(ended_at__gt=day_start) | Q(ended_at__isnull=True))
 
     if not incidents.exists():
         # No results and no incidents — we have no data for this day
@@ -289,13 +284,15 @@ def get_hourly_availability(check: Check, hours: int = 24) -> list[dict]:
         failures = qs.filter(is_success=False).count() if total else 0
         uptime_pct = round(((total - failures) / total) * 100, 2) if total > 0 else 100.0
 
-        result.append({
-            "hour_start": hour_start,
-            "hour_end": hour_end,
-            "uptime_pct": uptime_pct,
-            "total": total,
-            "failures": failures,
-        })
+        result.append(
+            {
+                "hour_start": hour_start,
+                "hour_end": hour_end,
+                "uptime_pct": uptime_pct,
+                "total": total,
+                "failures": failures,
+            }
+        )
 
     return result
 
@@ -318,9 +315,7 @@ def get_monthly_availability(check: Check, year: int, month: int) -> dict:
 
     incidents = check.incidents.filter(
         started_at__lt=month_end,
-    ).filter(
-        Q(ended_at__gt=month_start) | Q(ended_at__isnull=True)
-    )
+    ).filter(Q(ended_at__gt=month_start) | Q(ended_at__isnull=True))
 
     incident_count = incidents.count()
     downtime_seconds = 0.0
@@ -333,9 +328,7 @@ def get_monthly_availability(check: Check, year: int, month: int) -> dict:
     uptime_pct = round(((total_seconds - downtime_seconds) / total_seconds) * 100, 2) if total_seconds > 0 else 100.0
     uptime_pct = max(0.0, min(100.0, uptime_pct))
 
-    has_data = incident_count > 0 or check.results.filter(
-        timestamp__gte=month_start, timestamp__lt=month_end
-    ).exists()
+    has_data = incident_count > 0 or check.results.filter(timestamp__gte=month_start, timestamp__lt=month_end).exists()
 
     return {
         "uptime_pct": uptime_pct,

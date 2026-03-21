@@ -33,6 +33,4 @@ class Command(BaseCommand):
             return
 
         deleted, _ = qs.delete()
-        self.stdout.write(
-            self.style.SUCCESS(f"Deleted {deleted} result(s) older than {days} day(s).")
-        )
+        self.stdout.write(self.style.SUCCESS(f"Deleted {deleted} result(s) older than {days} day(s)."))

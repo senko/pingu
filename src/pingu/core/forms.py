@@ -54,8 +54,8 @@ class CheckForm(forms.ModelForm):
         for part in parts:
             try:
                 code = int(part)
-            except ValueError:
-                raise forms.ValidationError(f"'{part}' is not a valid integer status code.")
+            except ValueError as err:
+                raise forms.ValidationError(f"'{part}' is not a valid integer status code.") from err
             if code < 100 or code > 599:
                 raise forms.ValidationError(f"Status code {code} is outside the valid HTTP range (100–599).")
             statuses.append(code)
@@ -69,8 +69,8 @@ class CheckForm(forms.ModelForm):
             return raw
         try:
             parsed = json.loads(raw)
-        except (json.JSONDecodeError, TypeError):
-            raise forms.ValidationError("Headers must be valid JSON.")
+        except (json.JSONDecodeError, TypeError) as err:
+            raise forms.ValidationError("Headers must be valid JSON.") from err
         if not isinstance(parsed, dict):
             raise forms.ValidationError("Headers must be a JSON object (key/value pairs).")
         return parsed

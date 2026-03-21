@@ -5,13 +5,13 @@ from datetime import date, datetime, timedelta
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Avg, Q
+from django.db.models import Avg
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from pingu.core.forms import CheckForm
-from pingu.core.models import Check, CheckResult, Incident
+from pingu.core.models import Check, CheckResult
 from pingu.core.services import (
     get_check_status,
     get_daily_availability,
@@ -19,7 +19,6 @@ from pingu.core.services import (
     get_monthly_availability,
     run_single_check,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -106,11 +105,7 @@ def dashboard(request):
         # Hourly availability for uptime strip (last 24h)
         hourly_data = get_hourly_availability(check, hours=24)
         for entry in hourly_data:
-            entry["color"] = (
-                _get_uptime_bar_color(entry["uptime_pct"])
-                if entry["total"] > 0
-                else "surface-600"
-            )
+            entry["color"] = _get_uptime_bar_color(entry["uptime_pct"]) if entry["total"] > 0 else "surface-600"
 
         # Last result
         last_result = check.results.order_by("-timestamp").first()
@@ -198,11 +193,7 @@ def check_detail(request, pk):
     # Hourly availability (last 24h)
     hourly_data = get_hourly_availability(check, hours=24)
     for entry in hourly_data:
-        entry["color"] = (
-            _get_uptime_bar_color(entry["uptime_pct"])
-            if entry["total"] > 0
-            else "surface-600"
-        )
+        entry["color"] = _get_uptime_bar_color(entry["uptime_pct"]) if entry["total"] > 0 else "surface-600"
 
     # Daily availability (last 30 days)
     daily_data = []
@@ -210,11 +201,7 @@ def check_detail(request, pk):
         target_date = today - timedelta(days=i)
         day_avail = get_daily_availability(check, target_date)
         day_avail["date"] = target_date
-        day_avail["color"] = (
-            _get_uptime_bar_color(day_avail["uptime_pct"])
-            if day_avail["has_data"]
-            else "surface-600"
-        )
+        day_avail["color"] = _get_uptime_bar_color(day_avail["uptime_pct"]) if day_avail["has_data"] else "surface-600"
         daily_data.append(day_avail)
 
     # Monthly history (months older than 30 days where check existed)
@@ -230,9 +217,7 @@ def check_detail(request, pk):
         month_avail["month"] = current.month
         month_avail["label"] = current.strftime("%B %Y")
         month_avail["color"] = (
-            _get_uptime_bar_color(month_avail["uptime_pct"])
-            if month_avail["has_data"]
-            else "surface-600"
+            _get_uptime_bar_color(month_avail["uptime_pct"]) if month_avail["has_data"] else "surface-600"
         )
         monthly_data.append(month_avail)
         # Go to previous month
@@ -248,7 +233,6 @@ def check_detail(request, pk):
     uptime_24h_data = get_daily_availability(check, today)
     uptime_24h = uptime_24h_data["uptime_pct"]
 
-    thirty_days_ago = today - timedelta(days=30)
     uptime_30d_total = 0
     uptime_30d_count = 0
     for i in range(30):
@@ -285,9 +269,7 @@ def check_edit(request, pk):
     else:
         form = CheckForm(instance=check)
 
-    return render(
-        request, "core/check_form.html", {"form": form, "is_edit": True, "check": check}
-    )
+    return render(request, "core/check_form.html", {"form": form, "is_edit": True, "check": check})
 
 
 @login_required
@@ -347,9 +329,7 @@ def check_history(request, pk):
     success = all_day_results.filter(is_success=True).count()
     failed = total - success
     uptime_pct = round((success / total) * 100, 2) if total > 0 else 100.0
-    avg_response_time = all_day_results.filter(
-        response_time__isnull=False
-    ).aggregate(avg=Avg("response_time"))["avg"]
+    avg_response_time = all_day_results.filter(response_time__isnull=False).aggregate(avg=Avg("response_time"))["avg"]
 
     summary = {
         "total": total,
@@ -391,8 +371,7 @@ def check_run(request, pk):
     if result.is_success:
         messages.success(
             request,
-            f'"{check.name}" responded with {result.status_code} '
-            f"in {result.response_time}s.",
+            f'"{check.name}" responded with {result.status_code} in {result.response_time}s.',
         )
     else:
         error = result.error_message or f"HTTP {result.status_code}"

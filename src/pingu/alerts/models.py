@@ -12,9 +12,7 @@ class AlertLog(models.Model):
     check = models.ForeignKey(  # type: ignore[assignment]
         Check, on_delete=models.CASCADE, related_name="alert_logs"
     )
-    incident = models.ForeignKey(
-        Incident, on_delete=models.SET_NULL, null=True, blank=True, related_name="alert_logs"
-    )
+    incident = models.ForeignKey(Incident, on_delete=models.SET_NULL, null=True, blank=True, related_name="alert_logs")
     alert_type = models.CharField(max_length=4, choices=ALERT_TYPE_CHOICES)
     recipient = models.EmailField()
     sent_at = models.DateTimeField(auto_now_add=True)
