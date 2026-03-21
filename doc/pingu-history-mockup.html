@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pingu — CDN Origin — Check History</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['DM Sans', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            surface: {
+              900: '#0a0c10',
+              800: '#0f1218',
+              700: '#161a22',
+              600: '#1c2130',
+              500: '#252b3b',
+            },
+            border: {
+              DEFAULT: '#1e2433',
+              light: '#2a3148',
+            },
+            accent: {
+              teal: '#2dd4a8',
+              tealDim: 'rgba(45,212,168,0.12)',
+            },
+            status: {
+              up: '#22c55e',
+              upDim: 'rgba(34,197,94,0.12)',
+              down: '#ef4444',
+              downDim: 'rgba(239,68,68,0.12)',
+              paused: '#6b7280',
+              pausedDim: 'rgba(107,114,128,0.12)',
+              warn: '#f59e0b',
+              warnDim: 'rgba(245,158,11,0.12)',
+            },
+            text: {
+              primary: '#e2e8f0',
+              secondary: '#8896ab',
+              muted: '#556178',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      background: #0a0c10;
+      color: #e2e8f0;
+      font-family: 'DM Sans', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      opacity: 0.015;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+    }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #252b3b; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #2a3148; }
+
+    .badge {
+      font-size: 0.6875rem;
+      letter-spacing: 0.03em;
+      font-weight: 500;
+      padding: 0.2rem 0.55rem;
+      border-radius: 9999px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      white-space: nowrap;
+    }
+
+    .filter-pill {
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 0.3rem 0.75rem;
+      border-radius: 9999px;
+      border: 1px solid #1e2433;
+      background: transparent;
+      color: #556178;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .filter-pill:hover {
+      border-color: #2a3148;
+      color: #8896ab;
+    }
+    .filter-pill.active {
+      background: rgba(45, 212, 168, 0.1);
+      border-color: rgba(45, 212, 168, 0.25);
+      color: #2dd4a8;
+    }
+
+    .day-nav-btn {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      padding: 0.4rem 0.75rem;
+      border-radius: 0.5rem;
+      border: 1px solid #1e2433;
+      background: transparent;
+      color: #8896ab;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: 'DM Sans', sans-serif;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .day-nav-btn:hover {
+      background: rgba(255,255,255,0.03);
+      border-color: #2a3148;
+      color: #e2e8f0;
+    }
+    .day-nav-btn.disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .result-row {
+      transition: background 0.12s ease;
+    }
+    .result-row:hover {
+      background: rgba(255, 255, 255, 0.015);
+    }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  <!-- Nav -->
+  <nav class="border-b border-border sticky top-0 z-40" style="background: rgba(10,12,16,0.85); backdrop-filter: blur(12px);">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-14">
+        <div class="flex items-center gap-3">
+          <a href="#" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" class="text-accent-teal">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M8 12l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="text-base font-semibold tracking-tight text-text-primary">Pingu</span>
+          </a>
+          <span class="text-text-muted text-xs font-mono hidden sm:block">/ <a href="#" class="hover:text-text-secondary transition-colors">dashboard</a> / <a href="#" class="hover:text-text-secondary transition-colors">CDN Origin</a> / history</span>
+        </div>
+        <div class="hidden sm:flex items-center gap-4">
+          <div class="flex items-center gap-2">
+            <div class="w-6 h-6 rounded-full bg-surface-600 flex items-center justify-center">
+              <span class="text-xs font-medium text-text-secondary">A</span>
+            </div>
+            <span class="text-sm text-text-secondary">admin</span>
+          </div>
+          <a href="#" class="text-text-muted hover:text-text-secondary text-xs transition-colors">Logout</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- Page header -->
+    <div class="mb-5">
+      <a href="#" class="text-xs text-accent-teal hover:underline transition-colors">← Back to CDN Origin</a>
+      <h1 class="text-lg font-semibold text-text-primary mt-2">Check History</h1>
+      <div class="text-sm text-text-muted mt-0.5 font-mono">CDN Origin · GET https://cdn-origin.example.com/probe</div>
+    </div>
+
+    <!-- Day navigation + filter -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+      <div class="flex items-center gap-2">
+        <button class="day-nav-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          <span class="hidden sm:inline">Yesterday</span>
+          <span class="sm:hidden">Mar 19</span>
+        </button>
+        <div class="px-3 py-1.5 bg-surface-700 border border-border rounded-lg text-sm font-medium text-text-primary text-center min-w-[120px] sm:min-w-[140px]">
+          Today · Mar 20
+        </div>
+        <button class="day-nav-btn disabled">
+          <span class="hidden sm:inline">Tomorrow</span>
+          <span class="sm:hidden">Mar 21</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <button class="filter-pill active">All</button>
+        <button class="filter-pill">Failed</button>
+        <button class="filter-pill">Success</button>
+      </div>
+    </div>
+
+    <!-- Day summary — horizontal on desktop, stacked on mobile -->
+    <div class="bg-surface-700 border border-border rounded-xl px-4 py-3 mb-4">
+      <div class="hidden sm:flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+        <div><span class="text-text-muted">Total checks:</span><span class="text-text-primary font-mono ml-1">847</span></div>
+        <div><span class="text-text-muted">Successful:</span><span class="text-status-up font-mono ml-1">748</span></div>
+        <div><span class="text-text-muted">Failed:</span><span class="text-status-down font-mono ml-1">99</span></div>
+        <div><span class="text-text-muted">Uptime:</span><span class="text-status-warn font-mono ml-1">96.1%</span></div>
+        <div><span class="text-text-muted">Avg response:</span><span class="text-text-primary font-mono ml-1">0.234s</span></div>
+      </div>
+      <div class="sm:hidden space-y-1.5 text-sm">
+        <div class="flex justify-between"><span class="text-text-muted">Total checks</span><span class="text-text-primary font-mono">847</span></div>
+        <div class="flex justify-between"><span class="text-text-muted">Successful</span><span class="text-status-up font-mono">748</span></div>
+        <div class="flex justify-between"><span class="text-text-muted">Failed</span><span class="text-status-down font-mono">99</span></div>
+        <div class="flex justify-between"><span class="text-text-muted">Uptime</span><span class="text-status-warn font-mono">96.1%</span></div>
+        <div class="flex justify-between"><span class="text-text-muted">Avg response</span><span class="text-text-primary font-mono">0.234s</span></div>
+      </div>
+    </div>
+
+    <!-- Results table -->
+    <div class="bg-surface-800 border border-border rounded-xl overflow-hidden">
+
+      <!-- Column headers — md+ -->
+      <div class="hidden md:grid grid-cols-12 gap-3 px-5 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider border-b border-border/50">
+        <div class="col-span-3">Time</div>
+        <div class="col-span-2">Status Code</div>
+        <div class="col-span-3">Response Time</div>
+        <div class="col-span-4">Details</div>
+      </div>
+
+      <div class="divide-y divide-border/30">
+
+        <!-- Result: success -->
+        <div class="result-row px-4 sm:px-5 py-2 md:grid md:grid-cols-12 md:gap-3 md:items-center">
+          <div class="md:col-span-3 flex items-center justify-between md:block">
+            <span class="text-sm font-mono text-text-primary">23:47:12</span>
+            <span class="badge bg-status-upDim text-status-up md:hidden">200</span>
+          </div>
+          <div class="md:col-span-2 hidden md:block"><span class="badge bg-status-upDim text-status-up">200</span></div>
+          <div class="md:col-span-3 hidden md:block"><span class="text-sm font-mono text-text-primary">0.187s</span></div>
+          <div class="md:col-span-4 hidden md:block"><span class="text-xs text-text-muted">—</span></div>
+        </div>
+
+        <!-- Result: success -->
+        <div class="result-row px-4 sm:px-5 py-2 md:grid md:grid-cols-12 md:gap-3 md:items-center">
+          <div class="md:col-span-3 flex items-center justify-between md:block">
+            <span class="text-sm font-mono text-text-primary">23:46:12</span>
+            <span class="badge bg-status-upDim text-status-up md:hidden">200</span>
+          </div>
+          <div class="md:col-span-2 hidden md:block"><span class="badge bg-status-upDim text-status-up">200</span></div>
+          <div class="md:col-span-3 hidden md:block"><span class="text-sm font-mono text-text-primary">0.203s</span></div>
+          <div class="md:col-span-4 hidden md:block"><span class="text-xs text-text-muted">—</span></div>
+        </div>
+
+        <!-- Result: success -->
+        <div class="result-row px-4 sm:px-5 py-2 md:grid md:grid-cols-12 md:gap-3 md:items-center">
+          <div class="md:col-span-3 flex items-center justify-between md:block">
+            <span class="text-sm font-mono text-text-primary">23:45:12</span>
+            <span class="badge bg-status-upDim text-status-up md:hidden">200</span>
+          </div>
+          <div class="md:col-span-2 hidden md:block"><span class="badge bg-status-upDim text-status-up">200</span></div>
+          <div class="md:col-span-3 hidden md:block"><span class="text-sm font-mono text-text-primary">0.191s</span></div>
+          <div class="md:col-span-4 hidden md:block"><span class="text-xs text-text-muted">—</span></div>
+        </div>
+
+        <!-- Gap: afternoon successes -->
+        <div class="px-5 py-1.5 text-center">
+          <span class="text-xs text-text-muted font-mono">· · ·  success results from 15:00 – 23:44  · · ·</span>
+        </div>
+
+        <!-- Recovery -->
+        <div class="result-row px-4 sm:px-5 py-2 md:grid md:grid-cols-12 md:gap-3 md:items-center">
+          <div class="md:col-span-3 flex items-center justify-between md:block">
+            <span class="text-sm font-mono text-text-primary">14:47:14</span>
+            <span class="badge bg-status-upDim text-status-up md:hidden">200</span>
+          </div>
+          <div class="md:col-span-2 hidden md:block"><span class="badge bg-status-upDim text-status-up">200</span></div>
+          <div class="md:col-span-3 hidden md:block"><span class="text-sm font-mono text-text-primary">0.412s</span></div>
+          <div class="md:col-span-4 hidden md:block"><span class="text-xs text-status-up">↑ Recovery — incident resolved</span></div>
+        </div>
+
+        <!-- Failure: timeout -->
+        <div class="result-row px-4 sm:px-5 py-2 md:grid md:grid-cols-12 md:gap-3 md:items-center" style="background: rgba(239,68,68,0.025);">
+          <div class="md:col-span-3 flex items-center justify-between md:block">
+            <span class="text-sm font-mono text-text-primary">14:46:12</span>
+            <span class="badge bg-status-downDim text-status-down md:hidden">Timeout</span>
+          </div>
+          <div class="md:col-span-2 hidden md:block"><span class="badge bg-status-downDim text-status-down">Timeout</span></div>
+          <div class="md:col-span-3 hidden md:block"><span class="text-sm font-mono text-status-down">10.000s</span></div>
+          <div class="md:col-span-4 hidden md:block"><span class="text-xs text-text-muted">Connection timeout after 10s</span></div>
+        </div>
+
+        <!-- Failure: timeout -->
+        <div class="result-row px-4 sm:px-5 py-2 md:grid md:grid-cols-12 md:gap-3 md:items-center" style="background: rgba(239,68,68,0.025);">
+          <div class="md:col-span-3 flex items-center justify-between md:block">
+            <span class="text-sm font-mono text-text-primary">14:45:11</span>
+            <span class="badge bg-status-downDim text-status-down md:hidden">Timeout</span>
+          </div>
+          <div class="md:col-span-2 hidden md:block"><span class="badge bg-status-downDim text-status-down">Timeout</span></div>
+          <div class="md:col-span-3 hidden md:block"><span class="text-sm font-mono text-status-down">10.000s</span></div>
+          <div class="md:col-span-4 hidden md:block"><span class="text-xs text-text-muted">Connection timeout after 10s</span></div>
+        </div>
+
+        <!-- Gap: failure period -->
+        <div class="px-5 py-1.5 text-center" style="background: rgba(239,68,68,0.015);">
+          <span class="text-xs text-status-down/60 font-mono">· · ·  93 more failures from 13:14 – 14:44  · · ·</span>
+        </div>
+
+        <!-- Failure: 502 — alert sent -->
+        <div class="result-row px-4 sm:px-5 py-2 md:grid md:grid-cols-12 md:gap-3 md:items-center" style="background: rgba(239,68,68,0.025);">
+          <div class="md:col-span-3 flex items-center justify-between md:block">
+            <span class="text-sm font-mono text-text-primary">13:15:09</span>
+            <span class="badge bg-status-downDim text-status-down md:hidden">502</span>
+          </div>
+          <div class="md:col-span-2 hidden md:block"><span class="badge bg-status-downDim text-status-down">502</span></div>
+          <div class="md:col-span-3 hidden md:block"><span class="text-sm font-mono text-status-down">1.203s</span></div>
+          <div class="md:col-span-4 hidden md:block"><span class="text-xs text-status-down">⚠ Alert sent — DOWN after 2 failures</span></div>
+        </div>
+
+        <!-- Failure: 502 — first -->
+        <div class="result-row px-4 sm:px-5 py-2 md:grid md:grid-cols-12 md:gap-3 md:items-center" style="background: rgba(239,68,68,0.025);">
+          <div class="md:col-span-3 flex items-center justify-between md:block">
+            <span class="text-sm font-mono text-text-primary">13:14:08</span>
+            <span class="badge bg-status-downDim text-status-down md:hidden">502</span>
+          </div>
+          <div class="md:col-span-2 hidden md:block"><span class="badge bg-status-downDim text-status-down">502</span></div>
+          <div class="md:col-span-3 hidden md:block"><span class="text-sm font-mono text-status-down">1.087s</span></div>
+          <div class="md:col-span-4 hidden md:block"><span class="text-xs text-text-muted">502 Bad Gateway</span></div>
+        </div>
+
+        <!-- Success, before outage -->
+        <div class="result-row px-4 sm:px-5 py-2 md:grid md:grid-cols-12 md:gap-3 md:items-center">
+          <div class="md:col-span-3 flex items-center justify-between md:block">
+            <span class="text-sm font-mono text-text-primary">13:13:08</span>
+            <span class="badge bg-status-upDim text-status-up md:hidden">200</span>
+          </div>
+          <div class="md:col-span-2 hidden md:block"><span class="badge bg-status-upDim text-status-up">200</span></div>
+          <div class="md:col-span-3 hidden md:block"><span class="text-sm font-mono text-text-primary">0.198s</span></div>
+          <div class="md:col-span-4 hidden md:block"><span class="text-xs text-text-muted">—</span></div>
+        </div>
+
+        <!-- Gap: morning successes -->
+        <div class="px-5 py-1.5 text-center">
+          <span class="text-xs text-text-muted font-mono">· · ·  success results from 03:21 – 13:12  · · ·</span>
+        </div>
+
+        <!-- Slow response -->
+        <div class="result-row px-4 sm:px-5 py-2 md:grid md:grid-cols-12 md:gap-3 md:items-center">
+          <div class="md:col-span-3 flex items-center justify-between md:block">
+            <span class="text-sm font-mono text-text-primary">03:20:07</span>
+            <span class="badge bg-status-upDim text-status-up md:hidden">200</span>
+          </div>
+          <div class="md:col-span-2 hidden md:block"><span class="badge bg-status-upDim text-status-up">200</span></div>
+          <div class="md:col-span-3 hidden md:block"><span class="text-sm font-mono text-status-warn">2.847s</span></div>
+          <div class="md:col-span-4 hidden md:block"><span class="text-xs text-text-muted">Slow response</span></div>
+        </div>
+
+        <!-- Failure: 503 -->
+        <div class="result-row px-4 sm:px-5 py-2 md:grid md:grid-cols-12 md:gap-3 md:items-center" style="background: rgba(239,68,68,0.025);">
+          <div class="md:col-span-3 flex items-center justify-between md:block">
+            <span class="text-sm font-mono text-text-primary">03:19:06</span>
+            <span class="badge bg-status-downDim text-status-down md:hidden">503</span>
+          </div>
+          <div class="md:col-span-2 hidden md:block"><span class="badge bg-status-downDim text-status-down">503</span></div>
+          <div class="md:col-span-3 hidden md:block"><span class="text-sm font-mono text-status-down">0.044s</span></div>
+          <div class="md:col-span-4 hidden md:block"><span class="text-xs text-text-muted">503 Service Unavailable</span></div>
+        </div>
+
+        <!-- Success -->
+        <div class="result-row px-4 sm:px-5 py-2 md:grid md:grid-cols-12 md:gap-3 md:items-center">
+          <div class="md:col-span-3 flex items-center justify-between md:block">
+            <span class="text-sm font-mono text-text-primary">03:18:06</span>
+            <span class="badge bg-status-upDim text-status-up md:hidden">200</span>
+          </div>
+          <div class="md:col-span-2 hidden md:block"><span class="badge bg-status-upDim text-status-up">200</span></div>
+          <div class="md:col-span-3 hidden md:block"><span class="text-sm font-mono text-text-primary">0.221s</span></div>
+          <div class="md:col-span-4 hidden md:block"><span class="text-xs text-text-muted">—</span></div>
+        </div>
+
+        <!-- Gap: early morning -->
+        <div class="px-5 py-1.5 text-center">
+          <span class="text-xs text-text-muted font-mono">· · ·  success results from 02:20 – 03:17  · · ·</span>
+        </div>
+
+        <!-- Failure: 503 early blip -->
+        <div class="result-row px-4 sm:px-5 py-2 md:grid md:grid-cols-12 md:gap-3 md:items-center" style="background: rgba(239,68,68,0.025);">
+          <div class="md:col-span-3 flex items-center justify-between md:block">
+            <span class="text-sm font-mono text-text-primary">02:19:04</span>
+            <span class="badge bg-status-downDim text-status-down md:hidden">503</span>
+          </div>
+          <div class="md:col-span-2 hidden md:block"><span class="badge bg-status-downDim text-status-down">503</span></div>
+          <div class="md:col-span-3 hidden md:block"><span class="text-sm font-mono text-status-down">0.038s</span></div>
+          <div class="md:col-span-4 hidden md:block"><span class="text-xs text-text-muted">503 Service Unavailable</span></div>
+        </div>
+
+        <!-- Success -->
+        <div class="result-row px-4 sm:px-5 py-2 md:grid md:grid-cols-12 md:gap-3 md:items-center">
+          <div class="md:col-span-3 flex items-center justify-between md:block">
+            <span class="text-sm font-mono text-text-primary">02:18:04</span>
+            <span class="badge bg-status-upDim text-status-up md:hidden">200</span>
+          </div>
+          <div class="md:col-span-2 hidden md:block"><span class="badge bg-status-upDim text-status-up">200</span></div>
+          <div class="md:col-span-3 hidden md:block"><span class="text-sm font-mono text-text-primary">0.176s</span></div>
+          <div class="md:col-span-4 hidden md:block"><span class="text-xs text-text-muted">—</span></div>
+        </div>
+
+        <!-- Gap: midnight -->
+        <div class="px-5 py-1.5 text-center">
+          <span class="text-xs text-text-muted font-mono">· · ·  success results from 00:00 – 02:17  · · ·</span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="flex items-center justify-between text-xs text-text-muted py-6">
+      <span>Pingu v1.0</span>
+      <a href="#" class="text-accent-teal hover:underline">← Back to dashboard</a>
+    </div>
+
+  </main>
+
+</body>
+</html>

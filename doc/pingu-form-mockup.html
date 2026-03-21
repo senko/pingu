@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pingu — Edit Check</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['DM Sans', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            surface: {
+              900: '#0a0c10',
+              800: '#0f1218',
+              700: '#161a22',
+              600: '#1c2130',
+              500: '#252b3b',
+            },
+            border: {
+              DEFAULT: '#1e2433',
+              light: '#2a3148',
+            },
+            accent: {
+              teal: '#2dd4a8',
+              tealDim: 'rgba(45,212,168,0.12)',
+            },
+            status: {
+              up: '#22c55e',
+              upDim: 'rgba(34,197,94,0.12)',
+              down: '#ef4444',
+              downDim: 'rgba(239,68,68,0.12)',
+              paused: '#6b7280',
+              pausedDim: 'rgba(107,114,128,0.12)',
+              warn: '#f59e0b',
+              warnDim: 'rgba(245,158,11,0.12)',
+            },
+            text: {
+              primary: '#e2e8f0',
+              secondary: '#8896ab',
+              muted: '#556178',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      background: #0a0c10;
+      color: #e2e8f0;
+      font-family: 'DM Sans', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      opacity: 0.015;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+    }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #252b3b; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #2a3148; }
+
+    /* Form inputs — base */
+    .form-input {
+      width: 100%;
+      background: #0f1218;
+      border: 1px solid #1e2433;
+      border-radius: 0.5rem;
+      padding: 0.55rem 0.75rem;
+      color: #e2e8f0;
+      font-size: 0.875rem;
+      font-family: 'DM Sans', sans-serif;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      outline: none;
+    }
+    .form-input:focus {
+      border-color: rgba(45, 212, 168, 0.4);
+      box-shadow: 0 0 0 3px rgba(45, 212, 168, 0.08);
+    }
+    .form-input::placeholder {
+      color: #556178;
+    }
+    .form-input-mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8125rem;
+    }
+
+    /* Form inputs — error state */
+    .form-input-error {
+      border-color: rgba(239, 68, 68, 0.5) !important;
+    }
+    .form-input-error:focus {
+      border-color: rgba(239, 68, 68, 0.6) !important;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+    }
+
+    /* Field error message */
+    .field-error {
+      color: #ef4444;
+      font-size: 0.75rem;
+      margin-top: 0.4rem;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    /* Toggle switch */
+    .toggle-track {
+      width: 36px;
+      height: 20px;
+      border-radius: 10px;
+      background: #252b3b;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s ease;
+      flex-shrink: 0;
+    }
+    .toggle-track.active {
+      background: rgba(45, 212, 168, 0.35);
+    }
+    .toggle-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #556178;
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      transition: all 0.2s ease;
+    }
+    .toggle-track.active .toggle-thumb {
+      left: 18px;
+      background: #2dd4a8;
+    }
+
+    /* Tag / chip */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: #1c2130;
+      border: 1px solid #2a3148;
+      border-radius: 0.375rem;
+      padding: 0.25rem 0.5rem;
+      font-size: 0.8125rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: #e2e8f0;
+      white-space: nowrap;
+    }
+    .tag-remove {
+      color: #556178;
+      cursor: pointer;
+      font-size: 0.875rem;
+      line-height: 1;
+      transition: color 0.15s ease;
+    }
+    .tag-remove:hover { color: #ef4444; }
+
+    /* Buttons */
+    .btn-primary {
+      font-size: 0.875rem;
+      padding: 0.55rem 1.25rem;
+      border-radius: 0.5rem;
+      background: rgba(45, 212, 168, 0.12);
+      border: 1px solid rgba(45, 212, 168, 0.3);
+      color: #2dd4a8;
+      transition: all 0.15s ease;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 600;
+    }
+    .btn-primary:hover {
+      background: rgba(45, 212, 168, 0.2);
+      border-color: rgba(45, 212, 168, 0.45);
+    }
+    .btn-secondary {
+      font-size: 0.875rem;
+      padding: 0.55rem 1.25rem;
+      border-radius: 0.5rem;
+      background: transparent;
+      border: 1px solid #1e2433;
+      color: #8896ab;
+      transition: all 0.15s ease;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+    }
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.03);
+      border-color: #2a3148;
+      color: #e2e8f0;
+    }
+    .btn-ghost {
+      font-size: 0.8125rem;
+      padding: 0.35rem 0.6rem;
+      border-radius: 0.375rem;
+      background: transparent;
+      border: 1px dashed #2a3148;
+      color: #556178;
+      transition: all 0.15s ease;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+    }
+    .btn-ghost:hover {
+      border-color: rgba(45, 212, 168, 0.3);
+      color: #8896ab;
+      background: rgba(45, 212, 168, 0.04);
+    }
+
+    textarea.form-input {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .section-label {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #556178;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid rgba(30, 36, 51, 0.6);
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  <!-- Nav -->
+  <nav class="border-b border-border sticky top-0 z-40" style="background: rgba(10,12,16,0.85); backdrop-filter: blur(12px);">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-14">
+        <div class="flex items-center gap-3">
+          <a href="#" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" class="text-accent-teal">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M8 12l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="text-base font-semibold tracking-tight text-text-primary">Pingu</span>
+          </a>
+          <span class="text-text-muted text-xs font-mono hidden sm:block">/ <a href="#" class="hover:text-text-secondary transition-colors">dashboard</a> / <a href="#" class="hover:text-text-secondary transition-colors">CDN Origin</a> / edit</span>
+        </div>
+        <div class="hidden sm:flex items-center gap-4">
+          <div class="flex items-center gap-2">
+            <div class="w-6 h-6 rounded-full bg-surface-600 flex items-center justify-center">
+              <span class="text-xs font-medium text-text-secondary">A</span>
+            </div>
+            <span class="text-sm text-text-secondary">admin</span>
+          </div>
+          <a href="#" class="text-text-muted hover:text-text-secondary text-xs transition-colors">Logout</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- Page title -->
+    <div class="mb-6">
+      <h1 class="text-lg font-semibold text-text-primary">Edit Check</h1>
+      <p class="text-sm text-text-muted mt-1">Modify the monitoring configuration for this endpoint.</p>
+    </div>
+
+    <!-- =====================================================
+         FORM-LEVEL ERROR BANNER
+         (shown after submit with validation errors)
+         ===================================================== -->
+    <div class="mb-5 bg-status-downDim border border-status-down/20 rounded-xl px-4 py-3 flex items-start gap-3">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="text-status-down shrink-0 mt-0.5">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+        <line x1="12" y1="8" x2="12" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="12" cy="16.5" r="0.75" fill="currentColor"/>
+      </svg>
+      <div>
+        <div class="text-sm font-medium text-status-down">Please fix the errors below</div>
+        <div class="text-xs text-status-down/70 mt-0.5">3 fields need your attention before saving.</div>
+      </div>
+    </div>
+
+    <!-- Form card -->
+    <div class="bg-surface-800 border border-border rounded-xl overflow-hidden">
+
+      <!-- =====================================================
+           SECTION: Endpoint
+           ===================================================== -->
+      <div class="px-5 py-5 sm:px-6 space-y-5">
+        <div class="section-label">Endpoint</div>
+
+        <!-- Name — ERROR: empty -->
+        <div>
+          <label class="block text-sm text-text-secondary mb-1.5">Name</label>
+          <input type="text" class="form-input form-input-error" value="" placeholder="e.g. Production API">
+          <div class="field-error">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="13"/><circle cx="12" cy="16.5" r="0.75" fill="currentColor" stroke="none"/></svg>
+            This field is required.
+          </div>
+        </div>
+
+        <!-- URL — ERROR: invalid -->
+        <div>
+          <label class="block text-sm text-text-secondary mb-1.5">URL</label>
+          <input type="text" class="form-input form-input-mono form-input-error" value="not-a-valid-url" placeholder="https://example.com/health">
+          <div class="field-error">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="13"/><circle cx="12" cy="16.5" r="0.75" fill="currentColor" stroke="none"/></svg>
+            Enter a valid URL including the scheme (e.g. https://).
+          </div>
+        </div>
+
+        <!-- Method -->
+        <div>
+          <label class="block text-sm text-text-secondary mb-1.5">Method</label>
+          <div class="flex flex-wrap gap-1.5">
+            <button class="px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-all bg-accent-tealDim text-accent-teal border border-accent-teal/25">GET</button>
+            <button class="px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-all bg-transparent text-text-muted border border-border hover:border-border-light hover:text-text-secondary">POST</button>
+            <button class="px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-all bg-transparent text-text-muted border border-border hover:border-border-light hover:text-text-secondary">PUT</button>
+            <button class="px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-all bg-transparent text-text-muted border border-border hover:border-border-light hover:text-text-secondary">PATCH</button>
+            <button class="px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-all bg-transparent text-text-muted border border-border hover:border-border-light hover:text-text-secondary">DELETE</button>
+            <button class="px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-all bg-transparent text-text-muted border border-border hover:border-border-light hover:text-text-secondary">HEAD</button>
+            <button class="px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-all bg-transparent text-text-muted border border-border hover:border-border-light hover:text-text-secondary">OPTIONS</button>
+          </div>
+        </div>
+
+        <!-- Body (hidden for GET) -->
+        <div class="rounded-lg border border-dashed border-border px-4 py-3">
+          <div class="text-xs text-text-muted">Request body is available when method is POST, PUT, or PATCH.</div>
+        </div>
+
+        <!-- Headers -->
+        <div>
+          <label class="block text-sm text-text-secondary mb-1.5">Headers</label>
+          <div class="space-y-2">
+            <div class="flex items-center gap-2">
+              <input type="text" class="form-input form-input-mono flex-1" value="Authorization" placeholder="Key">
+              <input type="text" class="form-input form-input-mono flex-1" value="Bearer sk-xxxx...xxxx" placeholder="Value">
+              <button class="shrink-0 w-8 h-8 flex items-center justify-center rounded-md text-text-muted hover:text-status-down hover:bg-status-downDim transition-all" title="Remove header">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <div class="flex items-center gap-2">
+              <input type="text" class="form-input form-input-mono flex-1" value="Accept" placeholder="Key">
+              <input type="text" class="form-input form-input-mono flex-1" value="application/json" placeholder="Value">
+              <button class="shrink-0 w-8 h-8 flex items-center justify-center rounded-md text-text-muted hover:text-status-down hover:bg-status-downDim transition-all" title="Remove header">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <button class="btn-ghost w-full text-center">+ Add header</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="border-t border-border"></div>
+
+      <!-- =====================================================
+           SECTION: Check Settings
+           ===================================================== -->
+      <div class="px-5 py-5 sm:px-6 space-y-5">
+        <div class="section-label">Check Settings</div>
+
+        <!-- Expected statuses -->
+        <div>
+          <label class="block text-sm text-text-secondary mb-1.5">Expected Status Codes</label>
+          <div class="form-input flex flex-wrap items-center gap-1.5 min-h-[2.6rem] cursor-text" style="padding: 0.35rem 0.5rem;">
+            <span class="tag">200<span class="tag-remove">×</span></span>
+            <span class="tag">201<span class="tag-remove">×</span></span>
+            <span class="tag">204<span class="tag-remove">×</span></span>
+            <input type="text" class="bg-transparent border-none outline-none text-sm text-text-primary placeholder:text-text-muted w-16 flex-1 min-w-[60px] py-0.5 font-mono" placeholder="Add...">
+          </div>
+          <div class="text-xs text-text-muted mt-1.5">Type a status code and press Enter to add. Click × to remove.</div>
+        </div>
+
+        <!-- Timeout + Interval — text inputs with inputmode="numeric" -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm text-text-secondary mb-1.5">Timeout</label>
+            <div class="relative">
+              <input type="text" inputmode="numeric" pattern="[0-9]*" class="form-input form-input-mono pr-8" value="10">
+              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted font-mono">s</span>
+            </div>
+            <div class="text-xs text-text-muted mt-1.5">1 – 30 seconds</div>
+          </div>
+          <div>
+            <label class="block text-sm text-text-secondary mb-1.5">Check Interval</label>
+            <div class="relative">
+              <input type="text" inputmode="numeric" pattern="[0-9]*" class="form-input form-input-mono pr-12" value="1">
+              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted font-mono">min</span>
+            </div>
+            <div class="text-xs text-text-muted mt-1.5">1 – 60 minutes</div>
+          </div>
+        </div>
+
+        <!-- Active toggle -->
+        <div class="flex items-center justify-between py-1">
+          <div>
+            <div class="text-sm text-text-secondary">Active</div>
+            <div class="text-xs text-text-muted mt-0.5">Paused checks are not executed.</div>
+          </div>
+          <div class="toggle-track active" onclick="this.classList.toggle('active')">
+            <div class="toggle-thumb"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="border-t border-border"></div>
+
+      <!-- =====================================================
+           SECTION: Alerting
+           ===================================================== -->
+      <div class="px-5 py-5 sm:px-6 space-y-5">
+        <div class="section-label">Alerting</div>
+
+        <!-- Enable alerts -->
+        <div class="flex items-center justify-between py-1">
+          <div>
+            <div class="text-sm text-text-secondary">Enable Alerts</div>
+            <div class="text-xs text-text-muted mt-0.5">Send email notifications on status changes.</div>
+          </div>
+          <div class="toggle-track active" onclick="this.classList.toggle('active')">
+            <div class="toggle-thumb"></div>
+          </div>
+        </div>
+
+        <!-- Alert threshold -->
+        <div>
+          <label class="block text-sm text-text-secondary mb-1.5">Alert after consecutive failures</label>
+          <div class="relative sm:max-w-[200px]">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" class="form-input form-input-mono pr-20" value="2">
+            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">failures</span>
+          </div>
+          <div class="text-xs text-text-muted mt-1.5">Minimum 1. A DOWN alert is sent once this threshold is reached.</div>
+        </div>
+
+        <!-- Alert email — ERROR: invalid -->
+        <div>
+          <label class="block text-sm text-text-secondary mb-1.5">Alert Email</label>
+          <input type="text" class="form-input form-input-error sm:max-w-[360px]" value="not-an-email">
+          <div class="field-error">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="13"/><circle cx="12" cy="16.5" r="0.75" fill="currentColor" stroke="none"/></svg>
+            Enter a valid email address.
+          </div>
+        </div>
+      </div>
+
+      <div class="border-t border-border"></div>
+
+      <!-- =====================================================
+           ACTIONS
+           ===================================================== -->
+      <div class="px-5 py-4 sm:px-6 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">
+        <a href="#" class="text-sm text-text-muted hover:text-text-secondary transition-colors text-center sm:text-left">Cancel</a>
+        <button class="btn-primary">Save Changes</button>
+      </div>
+    </div>
+
+    <!-- =====================================================
+         REFERENCE: Body field (for POST/PUT/PATCH)
+         ===================================================== -->
+    <div class="mt-8 mb-2">
+      <h2 class="text-sm font-semibold text-text-primary mb-1">Body field (shown when POST/PUT/PATCH is selected)</h2>
+      <p class="text-xs text-text-muted mb-4">Reference — this appears in place of the dashed note above.</p>
+    </div>
+    <div class="bg-surface-800 border border-border rounded-xl overflow-hidden px-5 py-5 sm:px-6">
+      <label class="block text-sm text-text-secondary mb-1.5">Request Body</label>
+      <textarea class="form-input form-input-mono" rows="5" placeholder='{"key": "value"}'>{
+  "action": "ping",
+  "source": "pingu"
+}</textarea>
+      <div class="text-xs text-text-muted mt-1.5">Free-form text — JSON, XML, form data, or anything the endpoint expects.</div>
+    </div>
+
+    <!-- =====================================================
+         REFERENCE: Timeout error example
+         ===================================================== -->
+    <div class="mt-8 mb-2">
+      <h2 class="text-sm font-semibold text-text-primary mb-1">Timeout with error (out of range)</h2>
+      <p class="text-xs text-text-muted mb-4">Reference — shown when value is outside 1–30.</p>
+    </div>
+    <div class="bg-surface-800 border border-border rounded-xl overflow-hidden px-5 py-5 sm:px-6">
+      <label class="block text-sm text-text-secondary mb-1.5">Timeout</label>
+      <div class="relative sm:max-w-[200px]">
+        <input type="text" inputmode="numeric" class="form-input form-input-mono form-input-error pr-8" value="99">
+        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted font-mono">s</span>
+      </div>
+      <div class="field-error">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="13"/><circle cx="12" cy="16.5" r="0.75" fill="currentColor" stroke="none"/></svg>
+        Must be between 1 and 30.
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="flex items-center justify-between text-xs text-text-muted py-6">
+      <span>Pingu v1.0</span>
+      <a href="#" class="text-accent-teal hover:underline">← Back to dashboard</a>
+    </div>
+
+  </main>
+
+</body>
+</html>

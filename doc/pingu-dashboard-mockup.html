@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pingu — Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['DM Sans', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            surface: {
+              900: '#0a0c10',
+              800: '#0f1218',
+              700: '#161a22',
+              600: '#1c2130',
+              500: '#252b3b',
+            },
+            border: {
+              DEFAULT: '#1e2433',
+              light: '#2a3148',
+            },
+            accent: {
+              teal: '#2dd4a8',
+              tealDim: 'rgba(45,212,168,0.12)',
+            },
+            status: {
+              up: '#22c55e',
+              upDim: 'rgba(34,197,94,0.12)',
+              down: '#ef4444',
+              downDim: 'rgba(239,68,68,0.12)',
+              paused: '#6b7280',
+              pausedDim: 'rgba(107,114,128,0.12)',
+              warn: '#f59e0b',
+              warnDim: 'rgba(245,158,11,0.12)',
+            },
+            text: {
+              primary: '#e2e8f0',
+              secondary: '#8896ab',
+              muted: '#556178',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      background: #0a0c10;
+      color: #e2e8f0;
+      font-family: 'DM Sans', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Subtle noise texture overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      opacity: 0.015;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #252b3b; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #2a3148; }
+
+    /* Seamless uptime bar strip — no gaps, no hover effect */
+    .uptime-strip {
+      display: flex;
+      height: 20px;
+      border-radius: 3px;
+      overflow: hidden;
+      width: 100%;
+      max-width: 180px;
+    }
+    .uptime-strip > div {
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* Check row hover */
+    .check-row {
+      transition: background 0.15s ease;
+    }
+    .check-row:hover {
+      background: rgba(45, 212, 168, 0.03);
+    }
+
+    /* Status pulse for down items */
+    @keyframes pulse-down {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .pulse-down {
+      animation: pulse-down 2s ease-in-out infinite;
+    }
+
+    /* Badge styling */
+    .badge {
+      font-size: 0.6875rem;
+      letter-spacing: 0.03em;
+      font-weight: 500;
+      padding: 0.2rem 0.55rem;
+      border-radius: 9999px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      white-space: nowrap;
+    }
+
+    /* Button styles */
+    .btn-check-now {
+      font-size: 0.75rem;
+      padding: 0.3rem 0.65rem;
+      border-radius: 0.375rem;
+      background: rgba(45, 212, 168, 0.08);
+      border: 1px solid rgba(45, 212, 168, 0.2);
+      color: #2dd4a8;
+      transition: all 0.15s ease;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+    }
+    .btn-check-now:hover {
+      background: rgba(45, 212, 168, 0.15);
+      border-color: rgba(45, 212, 168, 0.35);
+    }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  <!-- Top Navigation -->
+  <nav class="border-b border-border sticky top-0 z-40" style="background: rgba(10,12,16,0.85); backdrop-filter: blur(12px);">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-14">
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" class="text-accent-teal">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M8 12l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="text-base font-semibold tracking-tight text-text-primary">Pingu</span>
+          </div>
+          <span class="text-text-muted text-xs font-mono hidden sm:block">/ dashboard</span>
+        </div>
+        <div class="flex items-center gap-4">
+          <a href="#" class="text-text-secondary hover:text-text-primary text-sm transition-colors">+ New Check</a>
+          <div class="w-px h-4 bg-border hidden sm:block"></div>
+          <div class="hidden sm:flex items-center gap-2">
+            <div class="w-6 h-6 rounded-full bg-surface-600 flex items-center justify-center">
+              <span class="text-xs font-medium text-text-secondary">A</span>
+            </div>
+            <span class="text-sm text-text-secondary">admin</span>
+          </div>
+          <a href="#" class="text-text-muted hover:text-text-secondary text-xs transition-colors hidden sm:block">Logout</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- Summary Cards — hidden below md -->
+    <div class="hidden md:grid grid-cols-4 gap-3 mb-8">
+      <div class="bg-surface-700 border border-border rounded-xl p-4">
+        <div class="text-text-muted text-xs font-medium uppercase tracking-wider mb-1">Monitored</div>
+        <div class="text-2xl font-semibold text-text-primary">12</div>
+        <div class="text-xs text-text-muted mt-1">endpoints</div>
+      </div>
+      <div class="bg-surface-700 border border-border rounded-xl p-4">
+        <div class="text-text-muted text-xs font-medium uppercase tracking-wider mb-1">Up</div>
+        <div class="text-2xl font-semibold text-status-up">10</div>
+        <div class="text-xs text-text-muted mt-1">operational</div>
+      </div>
+      <div class="bg-surface-700 border border-border rounded-xl p-4">
+        <div class="text-text-muted text-xs font-medium uppercase tracking-wider mb-1">Down</div>
+        <div class="text-2xl font-semibold text-status-down">1</div>
+        <div class="text-xs text-text-muted mt-1">
+          <span class="pulse-down inline-block w-1.5 h-1.5 rounded-full bg-status-down mr-1"></span>
+          incident active
+        </div>
+      </div>
+      <div class="bg-surface-700 border border-border rounded-xl p-4">
+        <div class="text-text-muted text-xs font-medium uppercase tracking-wider mb-1">Paused</div>
+        <div class="text-2xl font-semibold text-status-paused">1</div>
+        <div class="text-xs text-text-muted mt-1">not checked</div>
+      </div>
+    </div>
+
+    <!-- Checks Table -->
+    <div class="bg-surface-800 border border-border rounded-xl overflow-hidden">
+      <div class="px-4 sm:px-5 py-3 border-b border-border flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-text-primary">All Checks</h2>
+        <div class="text-xs text-text-muted font-mono">Last run: 47s ago</div>
+      </div>
+
+      <!-- Column headers — lg only -->
+      <div class="hidden lg:grid grid-cols-12 gap-4 px-5 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider border-b border-border/50">
+        <div class="col-span-4">Service</div>
+        <div class="col-span-1 text-center">Status</div>
+        <div class="col-span-3 text-center">Today's Uptime</div>
+        <div class="col-span-2">Last Checked</div>
+        <div class="col-span-2 text-right">Actions</div>
+      </div>
+
+      <div class="divide-y divide-border/50">
+
+        <!-- ===========================================
+             TEMPLATE FOR EACH ROW:
+             - lg: full 12-col grid (service, status, bars+%, last checked, actions)
+             - md (hidden lg): flex row (dot, name+url, badge, % text)
+             - sm/xs (hidden md): flex row (dot, name only, badge)
+             =========================================== -->
+
+        <!-- ROW 1: Production API — UP, 100% -->
+        <a href="#" class="check-row block px-4 sm:px-5 py-3 lg:py-3.5">
+          <div class="hidden lg:grid grid-cols-12 gap-4 items-center">
+            <div class="col-span-4"><div class="flex items-center gap-2.5"><div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div><div class="min-w-0"><div class="text-sm font-medium text-text-primary truncate">Production API</div><div class="text-xs text-text-muted font-mono mt-0.5 truncate">https://api.example.com/health</div></div></div></div>
+            <div class="col-span-1 text-center"><span class="badge bg-status-upDim text-status-up">UP</span></div>
+            <div class="col-span-3"><div class="flex items-center justify-center gap-2.5"><div class="uptime-strip"><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div></div><span class="text-xs font-mono text-status-up shrink-0">100%</span></div></div>
+            <div class="col-span-2"><div class="text-sm text-text-secondary">47s ago</div><div class="text-xs text-text-muted">Up for 14d 6h</div></div>
+            <div class="col-span-2 flex justify-end"><button class="btn-check-now" onclick="event.preventDefault();">Check Now</button></div>
+          </div>
+          <div class="hidden md:flex lg:hidden items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div>
+            <div class="min-w-0 flex-1"><div class="text-sm font-medium text-text-primary truncate">Production API</div><div class="text-xs text-text-muted font-mono mt-0.5 truncate">https://api.example.com/health</div></div>
+            <span class="badge bg-status-upDim text-status-up shrink-0">UP</span>
+            <span class="text-xs font-mono text-status-up shrink-0 w-12 text-right">100%</span>
+          </div>
+          <div class="flex md:hidden items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div>
+            <div class="min-w-0 flex-1"><div class="text-sm font-medium text-text-primary truncate">Production API</div></div>
+            <span class="badge bg-status-upDim text-status-up shrink-0">UP</span>
+          </div>
+        </a>
+
+        <!-- ROW 2: Staging Frontend — UP, 99.7% (one warn blip) -->
+        <a href="#" class="check-row block px-4 sm:px-5 py-3 lg:py-3.5">
+          <div class="hidden lg:grid grid-cols-12 gap-4 items-center">
+            <div class="col-span-4"><div class="flex items-center gap-2.5"><div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div><div class="min-w-0"><div class="text-sm font-medium text-text-primary truncate">Staging Frontend</div><div class="text-xs text-text-muted font-mono mt-0.5 truncate">https://staging.example.com</div></div></div></div>
+            <div class="col-span-1 text-center"><span class="badge bg-status-upDim text-status-up">UP</span></div>
+            <div class="col-span-3"><div class="flex items-center justify-center gap-2.5"><div class="uptime-strip"><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-warn"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div></div><span class="text-xs font-mono text-status-up shrink-0">99.7%</span></div></div>
+            <div class="col-span-2"><div class="text-sm text-text-secondary">1m ago</div><div class="text-xs text-text-muted">Up for 3h 12m</div></div>
+            <div class="col-span-2 flex justify-end"><button class="btn-check-now" onclick="event.preventDefault();">Check Now</button></div>
+          </div>
+          <div class="hidden md:flex lg:hidden items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div>
+            <div class="min-w-0 flex-1"><div class="text-sm font-medium text-text-primary truncate">Staging Frontend</div><div class="text-xs text-text-muted font-mono mt-0.5 truncate">https://staging.example.com</div></div>
+            <span class="badge bg-status-upDim text-status-up shrink-0">UP</span>
+            <span class="text-xs font-mono text-status-up shrink-0 w-12 text-right">99.7%</span>
+          </div>
+          <div class="flex md:hidden items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div>
+            <div class="min-w-0 flex-1"><div class="text-sm font-medium text-text-primary truncate">Staging Frontend</div></div>
+            <span class="badge bg-status-upDim text-status-up shrink-0">UP</span>
+          </div>
+        </a>
+
+        <!-- ROW 3: Payment Gateway — DOWN -->
+        <a href="#" class="check-row block px-4 sm:px-5 py-3 lg:py-3.5" style="background: rgba(239,68,68,0.03);">
+          <div class="hidden lg:grid grid-cols-12 gap-4 items-center">
+            <div class="col-span-4"><div class="flex items-center gap-2.5"><div class="w-2 h-2 rounded-full bg-status-down shrink-0 pulse-down"></div><div class="min-w-0"><div class="text-sm font-medium text-text-primary truncate">Payment Gateway</div><div class="text-xs text-text-muted font-mono mt-0.5 truncate">https://pay.example.com/api/v2/status</div></div></div></div>
+            <div class="col-span-1 text-center"><span class="badge bg-status-downDim text-status-down"><span class="inline-block w-1 h-1 rounded-full bg-status-down pulse-down"></span>DOWN</span></div>
+            <div class="col-span-3"><div class="flex items-center justify-center gap-2.5"><div class="uptime-strip"><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-down"></div><div class="bg-status-down"></div><div class="bg-status-down"></div><div class="bg-status-down"></div><div class="bg-status-down"></div></div><span class="text-xs font-mono text-status-down shrink-0">79.2%</span></div></div>
+            <div class="col-span-2"><div class="text-sm text-status-down">32m ago</div><div class="text-xs text-status-down/70">Down for 4h 51m</div></div>
+            <div class="col-span-2 flex justify-end"><button class="btn-check-now" onclick="event.preventDefault();">Check Now</button></div>
+          </div>
+          <div class="hidden md:flex lg:hidden items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-status-down shrink-0 pulse-down"></div>
+            <div class="min-w-0 flex-1"><div class="text-sm font-medium text-text-primary truncate">Payment Gateway</div><div class="text-xs text-text-muted font-mono mt-0.5 truncate">https://pay.example.com/api/v2/status</div></div>
+            <span class="badge bg-status-downDim text-status-down shrink-0"><span class="inline-block w-1 h-1 rounded-full bg-status-down pulse-down"></span>DOWN</span>
+            <span class="text-xs font-mono text-status-down shrink-0 w-12 text-right">79.2%</span>
+          </div>
+          <div class="flex md:hidden items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-status-down shrink-0 pulse-down"></div>
+            <div class="min-w-0 flex-1"><div class="text-sm font-medium text-text-primary truncate">Payment Gateway</div></div>
+            <span class="badge bg-status-downDim text-status-down shrink-0"><span class="inline-block w-1 h-1 rounded-full bg-status-down pulse-down"></span>DOWN</span>
+          </div>
+        </a>
+
+        <!-- ROW 4: Auth Service — UP, 100% -->
+        <a href="#" class="check-row block px-4 sm:px-5 py-3 lg:py-3.5">
+          <div class="hidden lg:grid grid-cols-12 gap-4 items-center">
+            <div class="col-span-4"><div class="flex items-center gap-2.5"><div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div><div class="min-w-0"><div class="text-sm font-medium text-text-primary truncate">Auth Service</div><div class="text-xs text-text-muted font-mono mt-0.5 truncate">https://auth.example.com/oauth/token</div></div></div></div>
+            <div class="col-span-1 text-center"><span class="badge bg-status-upDim text-status-up">UP</span></div>
+            <div class="col-span-3"><div class="flex items-center justify-center gap-2.5"><div class="uptime-strip"><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div></div><span class="text-xs font-mono text-status-up shrink-0">100%</span></div></div>
+            <div class="col-span-2"><div class="text-sm text-text-secondary">47s ago</div><div class="text-xs text-text-muted">Up for 31d 2h</div></div>
+            <div class="col-span-2 flex justify-end"><button class="btn-check-now" onclick="event.preventDefault();">Check Now</button></div>
+          </div>
+          <div class="hidden md:flex lg:hidden items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div>
+            <div class="min-w-0 flex-1"><div class="text-sm font-medium text-text-primary truncate">Auth Service</div><div class="text-xs text-text-muted font-mono mt-0.5 truncate">https://auth.example.com/oauth/token</div></div>
+            <span class="badge bg-status-upDim text-status-up shrink-0">UP</span>
+            <span class="text-xs font-mono text-status-up shrink-0 w-12 text-right">100%</span>
+          </div>
+          <div class="flex md:hidden items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div>
+            <div class="min-w-0 flex-1"><div class="text-sm font-medium text-text-primary truncate">Auth Service</div></div>
+            <span class="badge bg-status-upDim text-status-up shrink-0">UP</span>
+          </div>
+        </a>
+
+        <!-- ROW 5: Webhook Receiver — UP, POST, 100% -->
+        <a href="#" class="check-row block px-4 sm:px-5 py-3 lg:py-3.5">
+          <div class="hidden lg:grid grid-cols-12 gap-4 items-center">
+            <div class="col-span-4"><div class="flex items-center gap-2.5"><div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div><div class="min-w-0"><div class="flex items-center gap-2"><span class="text-sm font-medium text-text-primary truncate">Webhook Receiver</span><span class="text-[0.625rem] font-mono text-text-muted bg-surface-600 px-1.5 py-0.5 rounded shrink-0">POST</span></div><div class="text-xs text-text-muted font-mono mt-0.5 truncate">https://hooks.example.com/ingest</div></div></div></div>
+            <div class="col-span-1 text-center"><span class="badge bg-status-upDim text-status-up">UP</span></div>
+            <div class="col-span-3"><div class="flex items-center justify-center gap-2.5"><div class="uptime-strip"><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div></div><span class="text-xs font-mono text-status-up shrink-0">100%</span></div></div>
+            <div class="col-span-2"><div class="text-sm text-text-secondary">5m ago</div><div class="text-xs text-text-muted">Up for 7d 14h</div></div>
+            <div class="col-span-2 flex justify-end"><button class="btn-check-now" onclick="event.preventDefault();">Check Now</button></div>
+          </div>
+          <div class="hidden md:flex lg:hidden items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div>
+            <div class="min-w-0 flex-1"><div class="flex items-center gap-2"><span class="text-sm font-medium text-text-primary truncate">Webhook Receiver</span><span class="text-[0.625rem] font-mono text-text-muted bg-surface-600 px-1.5 py-0.5 rounded shrink-0">POST</span></div><div class="text-xs text-text-muted font-mono mt-0.5 truncate">https://hooks.example.com/ingest</div></div>
+            <span class="badge bg-status-upDim text-status-up shrink-0">UP</span>
+            <span class="text-xs font-mono text-status-up shrink-0 w-12 text-right">100%</span>
+          </div>
+          <div class="flex md:hidden items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div>
+            <div class="min-w-0 flex-1"><div class="text-sm font-medium text-text-primary truncate">Webhook Receiver</div></div>
+            <span class="badge bg-status-upDim text-status-up shrink-0">UP</span>
+          </div>
+        </a>
+
+        <!-- ROW 6: CDN Origin — UP, 96.1% (degraded history) -->
+        <a href="#" class="check-row block px-4 sm:px-5 py-3 lg:py-3.5">
+          <div class="hidden lg:grid grid-cols-12 gap-4 items-center">
+            <div class="col-span-4"><div class="flex items-center gap-2.5"><div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div><div class="min-w-0"><div class="text-sm font-medium text-text-primary truncate">CDN Origin</div><div class="text-xs text-text-muted font-mono mt-0.5 truncate">https://cdn-origin.example.com/probe</div></div></div></div>
+            <div class="col-span-1 text-center"><span class="badge bg-status-upDim text-status-up">UP</span></div>
+            <div class="col-span-3"><div class="flex items-center justify-center gap-2.5"><div class="uptime-strip"><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-warn"></div><div class="bg-status-warn"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-down"></div><div class="bg-status-down"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div></div><span class="text-xs font-mono text-status-warn shrink-0">96.1%</span></div></div>
+            <div class="col-span-2"><div class="text-sm text-text-secondary">47s ago</div><div class="text-xs text-text-muted">Up for 9h 32m</div></div>
+            <div class="col-span-2 flex justify-end"><button class="btn-check-now" onclick="event.preventDefault();">Check Now</button></div>
+          </div>
+          <div class="hidden md:flex lg:hidden items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div>
+            <div class="min-w-0 flex-1"><div class="text-sm font-medium text-text-primary truncate">CDN Origin</div><div class="text-xs text-text-muted font-mono mt-0.5 truncate">https://cdn-origin.example.com/probe</div></div>
+            <span class="badge bg-status-upDim text-status-up shrink-0">UP</span>
+            <span class="text-xs font-mono text-status-warn shrink-0 w-12 text-right">96.1%</span>
+          </div>
+          <div class="flex md:hidden items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div>
+            <div class="min-w-0 flex-1"><div class="text-sm font-medium text-text-primary truncate">CDN Origin</div></div>
+            <span class="badge bg-status-upDim text-status-up shrink-0">UP</span>
+          </div>
+        </a>
+
+        <!-- ROW 7: Customer Portal — UP, 100% -->
+        <a href="#" class="check-row block px-4 sm:px-5 py-3 lg:py-3.5">
+          <div class="hidden lg:grid grid-cols-12 gap-4 items-center">
+            <div class="col-span-4"><div class="flex items-center gap-2.5"><div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div><div class="min-w-0"><div class="text-sm font-medium text-text-primary truncate">Customer Portal</div><div class="text-xs text-text-muted font-mono mt-0.5 truncate">https://portal.example.com</div></div></div></div>
+            <div class="col-span-1 text-center"><span class="badge bg-status-upDim text-status-up">UP</span></div>
+            <div class="col-span-3"><div class="flex items-center justify-center gap-2.5"><div class="uptime-strip"><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div></div><span class="text-xs font-mono text-status-up shrink-0">100%</span></div></div>
+            <div class="col-span-2"><div class="text-sm text-text-secondary">47s ago</div><div class="text-xs text-text-muted">Up for 22d 11h</div></div>
+            <div class="col-span-2 flex justify-end"><button class="btn-check-now" onclick="event.preventDefault();">Check Now</button></div>
+          </div>
+          <div class="hidden md:flex lg:hidden items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div>
+            <div class="min-w-0 flex-1"><div class="text-sm font-medium text-text-primary truncate">Customer Portal</div><div class="text-xs text-text-muted font-mono mt-0.5 truncate">https://portal.example.com</div></div>
+            <span class="badge bg-status-upDim text-status-up shrink-0">UP</span>
+            <span class="text-xs font-mono text-status-up shrink-0 w-12 text-right">100%</span>
+          </div>
+          <div class="flex md:hidden items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div>
+            <div class="min-w-0 flex-1"><div class="text-sm font-medium text-text-primary truncate">Customer Portal</div></div>
+            <span class="badge bg-status-upDim text-status-up shrink-0">UP</span>
+          </div>
+        </a>
+
+        <!-- ROW 8: Email Service — UP, 100% -->
+        <a href="#" class="check-row block px-4 sm:px-5 py-3 lg:py-3.5">
+          <div class="hidden lg:grid grid-cols-12 gap-4 items-center">
+            <div class="col-span-4"><div class="flex items-center gap-2.5"><div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div><div class="min-w-0"><div class="text-sm font-medium text-text-primary truncate">Email Service</div><div class="text-xs text-text-muted font-mono mt-0.5 truncate">https://mail.example.com/health</div></div></div></div>
+            <div class="col-span-1 text-center"><span class="badge bg-status-upDim text-status-up">UP</span></div>
+            <div class="col-span-3"><div class="flex items-center justify-center gap-2.5"><div class="uptime-strip"><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div></div><span class="text-xs font-mono text-status-up shrink-0">100%</span></div></div>
+            <div class="col-span-2"><div class="text-sm text-text-secondary">2m ago</div><div class="text-xs text-text-muted">Up for 45d 0h</div></div>
+            <div class="col-span-2 flex justify-end"><button class="btn-check-now" onclick="event.preventDefault();">Check Now</button></div>
+          </div>
+          <div class="hidden md:flex lg:hidden items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div>
+            <div class="min-w-0 flex-1"><div class="text-sm font-medium text-text-primary truncate">Email Service</div><div class="text-xs text-text-muted font-mono mt-0.5 truncate">https://mail.example.com/health</div></div>
+            <span class="badge bg-status-upDim text-status-up shrink-0">UP</span>
+            <span class="text-xs font-mono text-status-up shrink-0 w-12 text-right">100%</span>
+          </div>
+          <div class="flex md:hidden items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div>
+            <div class="min-w-0 flex-1"><div class="text-sm font-medium text-text-primary truncate">Email Service</div></div>
+            <span class="badge bg-status-upDim text-status-up shrink-0">UP</span>
+          </div>
+        </a>
+
+        <!-- ROW 9: Search Index — UP, 100% -->
+        <a href="#" class="check-row block px-4 sm:px-5 py-3 lg:py-3.5">
+          <div class="hidden lg:grid grid-cols-12 gap-4 items-center">
+            <div class="col-span-4"><div class="flex items-center gap-2.5"><div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div><div class="min-w-0"><div class="text-sm font-medium text-text-primary truncate">Search Index</div><div class="text-xs text-text-muted font-mono mt-0.5 truncate">https://search.example.com/_cluster/health</div></div></div></div>
+            <div class="col-span-1 text-center"><span class="badge bg-status-upDim text-status-up">UP</span></div>
+            <div class="col-span-3"><div class="flex items-center justify-center gap-2.5"><div class="uptime-strip"><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div></div><span class="text-xs font-mono text-status-up shrink-0">100%</span></div></div>
+            <div class="col-span-2"><div class="text-sm text-text-secondary">47s ago</div><div class="text-xs text-text-muted">Up for 60d 8h</div></div>
+            <div class="col-span-2 flex justify-end"><button class="btn-check-now" onclick="event.preventDefault();">Check Now</button></div>
+          </div>
+          <div class="hidden md:flex lg:hidden items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div>
+            <div class="min-w-0 flex-1"><div class="text-sm font-medium text-text-primary truncate">Search Index</div><div class="text-xs text-text-muted font-mono mt-0.5 truncate">https://search.example.com/_cluster/health</div></div>
+            <span class="badge bg-status-upDim text-status-up shrink-0">UP</span>
+            <span class="text-xs font-mono text-status-up shrink-0 w-12 text-right">100%</span>
+          </div>
+          <div class="flex md:hidden items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div>
+            <div class="min-w-0 flex-1"><div class="text-sm font-medium text-text-primary truncate">Search Index</div></div>
+            <span class="badge bg-status-upDim text-status-up shrink-0">UP</span>
+          </div>
+        </a>
+
+        <!-- ROW 10: Admin Dashboard — UP, 100% -->
+        <a href="#" class="check-row block px-4 sm:px-5 py-3 lg:py-3.5">
+          <div class="hidden lg:grid grid-cols-12 gap-4 items-center">
+            <div class="col-span-4"><div class="flex items-center gap-2.5"><div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div><div class="min-w-0"><div class="text-sm font-medium text-text-primary truncate">Admin Dashboard</div><div class="text-xs text-text-muted font-mono mt-0.5 truncate">https://admin.example.com</div></div></div></div>
+            <div class="col-span-1 text-center"><span class="badge bg-status-upDim text-status-up">UP</span></div>
+            <div class="col-span-3"><div class="flex items-center justify-center gap-2.5"><div class="uptime-strip"><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div></div><span class="text-xs font-mono text-status-up shrink-0">100%</span></div></div>
+            <div class="col-span-2"><div class="text-sm text-text-secondary">47s ago</div><div class="text-xs text-text-muted">Up for 14d 6h</div></div>
+            <div class="col-span-2 flex justify-end"><button class="btn-check-now" onclick="event.preventDefault();">Check Now</button></div>
+          </div>
+          <div class="hidden md:flex lg:hidden items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div>
+            <div class="min-w-0 flex-1"><div class="text-sm font-medium text-text-primary truncate">Admin Dashboard</div><div class="text-xs text-text-muted font-mono mt-0.5 truncate">https://admin.example.com</div></div>
+            <span class="badge bg-status-upDim text-status-up shrink-0">UP</span>
+            <span class="text-xs font-mono text-status-up shrink-0 w-12 text-right">100%</span>
+          </div>
+          <div class="flex md:hidden items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div>
+            <div class="min-w-0 flex-1"><div class="text-sm font-medium text-text-primary truncate">Admin Dashboard</div></div>
+            <span class="badge bg-status-upDim text-status-up shrink-0">UP</span>
+          </div>
+        </a>
+
+        <!-- ROW 11: Background Jobs — UP, 100% -->
+        <a href="#" class="check-row block px-4 sm:px-5 py-3 lg:py-3.5">
+          <div class="hidden lg:grid grid-cols-12 gap-4 items-center">
+            <div class="col-span-4"><div class="flex items-center gap-2.5"><div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div><div class="min-w-0"><div class="text-sm font-medium text-text-primary truncate">Background Jobs</div><div class="text-xs text-text-muted font-mono mt-0.5 truncate">https://workers.example.com/status</div></div></div></div>
+            <div class="col-span-1 text-center"><span class="badge bg-status-upDim text-status-up">UP</span></div>
+            <div class="col-span-3"><div class="flex items-center justify-center gap-2.5"><div class="uptime-strip"><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div><div class="bg-status-up"></div></div><span class="text-xs font-mono text-status-up shrink-0">100%</span></div></div>
+            <div class="col-span-2"><div class="text-sm text-text-secondary">47s ago</div><div class="text-xs text-text-muted">Up for 14d 6h</div></div>
+            <div class="col-span-2 flex justify-end"><button class="btn-check-now" onclick="event.preventDefault();">Check Now</button></div>
+          </div>
+          <div class="hidden md:flex lg:hidden items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div>
+            <div class="min-w-0 flex-1"><div class="text-sm font-medium text-text-primary truncate">Background Jobs</div><div class="text-xs text-text-muted font-mono mt-0.5 truncate">https://workers.example.com/status</div></div>
+            <span class="badge bg-status-upDim text-status-up shrink-0">UP</span>
+            <span class="text-xs font-mono text-status-up shrink-0 w-12 text-right">100%</span>
+          </div>
+          <div class="flex md:hidden items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-status-up shrink-0"></div>
+            <div class="min-w-0 flex-1"><div class="text-sm font-medium text-text-primary truncate">Background Jobs</div></div>
+            <span class="badge bg-status-upDim text-status-up shrink-0">UP</span>
+          </div>
+        </a>
+
+        <!-- ROW 12: Legacy CRM — PAUSED -->
+        <a href="#" class="check-row block px-4 sm:px-5 py-3 lg:py-3.5 opacity-50">
+          <div class="hidden lg:grid grid-cols-12 gap-4 items-center">
+            <div class="col-span-4"><div class="flex items-center gap-2.5"><div class="w-2 h-2 rounded-full bg-status-paused shrink-0"></div><div class="min-w-0"><div class="text-sm font-medium text-text-primary truncate">Legacy CRM</div><div class="text-xs text-text-muted font-mono mt-0.5 truncate">https://crm-old.example.com/ping</div></div></div></div>
+            <div class="col-span-1 text-center"><span class="badge bg-status-pausedDim text-status-paused">PAUSED</span></div>
+            <div class="col-span-3"><div class="flex items-center justify-center gap-2.5"><div class="uptime-strip"><div class="bg-surface-600"></div><div class="bg-surface-600"></div><div class="bg-surface-600"></div><div class="bg-surface-600"></div><div class="bg-surface-600"></div><div class="bg-surface-600"></div><div class="bg-surface-600"></div><div class="bg-surface-600"></div><div class="bg-surface-600"></div><div class="bg-surface-600"></div><div class="bg-surface-600"></div><div class="bg-surface-600"></div><div class="bg-surface-600"></div><div class="bg-surface-600"></div><div class="bg-surface-600"></div><div class="bg-surface-600"></div><div class="bg-surface-600"></div><div class="bg-surface-600"></div><div class="bg-surface-600"></div><div class="bg-surface-600"></div><div class="bg-surface-600"></div><div class="bg-surface-600"></div><div class="bg-surface-600"></div><div class="bg-surface-600"></div></div><span class="text-xs font-mono text-text-muted shrink-0">—</span></div></div>
+            <div class="col-span-2"><div class="text-sm text-text-muted">Paused</div><div class="text-xs text-text-muted">3d ago</div></div>
+            <div class="col-span-2 flex justify-end"><button class="btn-check-now opacity-50 cursor-not-allowed" onclick="event.preventDefault();" disabled>Check Now</button></div>
+          </div>
+          <div class="hidden md:flex lg:hidden items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-status-paused shrink-0"></div>
+            <div class="min-w-0 flex-1"><div class="text-sm font-medium text-text-primary truncate">Legacy CRM</div><div class="text-xs text-text-muted font-mono mt-0.5 truncate">https://crm-old.example.com/ping</div></div>
+            <span class="badge bg-status-pausedDim text-status-paused shrink-0">PAUSED</span>
+            <span class="text-xs font-mono text-text-muted shrink-0 w-12 text-right">—</span>
+          </div>
+          <div class="flex md:hidden items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-status-paused shrink-0"></div>
+            <div class="min-w-0 flex-1"><div class="text-sm font-medium text-text-primary truncate">Legacy CRM</div></div>
+            <span class="badge bg-status-pausedDim text-status-paused shrink-0">PAUSED</span>
+          </div>
+        </a>
+
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="mt-6 flex items-center justify-between text-xs text-text-muted">
+      <span>Pingu v1.0</span>
+      <span class="font-mono">12 checks · 1 incident active</span>
+    </div>
+
+  </main>
+
+</body>
+</html>
