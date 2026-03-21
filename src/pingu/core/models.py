@@ -1,9 +1,16 @@
-from datetime import timedelta
+from __future__ import annotations
+
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import Manager
 from django.utils import timezone
+
+if TYPE_CHECKING:
+    from django.contrib.auth.models import User
 
 
 class Check(models.Model):
@@ -48,6 +55,31 @@ class Check(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    if TYPE_CHECKING:
+        # Manager & reverse relations
+        objects: Manager[Check]
+        results: Manager[CheckResult]
+        incidents: Manager[Incident]
+        alert_logs: Manager[AlertLog]
+        # Field runtime types (Django descriptors resolve to these)
+        id: int  # type: ignore[assignment]
+        name: str  # type: ignore[assignment]
+        url: str  # type: ignore[assignment]
+        method: str  # type: ignore[assignment]
+        headers: dict  # type: ignore[assignment]
+        body: str  # type: ignore[assignment]
+        expected_statuses: list[int]  # type: ignore[assignment]
+        timeout: int  # type: ignore[assignment]
+        interval: int  # type: ignore[assignment]
+        is_active: bool  # type: ignore[assignment]
+        alert_enabled: bool  # type: ignore[assignment]
+        alert_threshold: int  # type: ignore[assignment]
+        alert_email: str  # type: ignore[assignment]
+        created_by: User | None  # type: ignore[assignment]
+        created_by_id: int | None
+        created_at: datetime  # type: ignore[assignment]
+        updated_at: datetime  # type: ignore[assignment]
+
     class Meta:
         ordering = ["name"]
 
@@ -57,14 +89,23 @@ class Check(models.Model):
 
 class CheckResult(models.Model):
     id = models.AutoField(primary_key=True)
-    check = models.ForeignKey(  # type: ignore[assignment]
-        Check, on_delete=models.CASCADE, related_name="results"
-    )
+    check = models.ForeignKey(Check, on_delete=models.CASCADE, related_name="results")
     timestamp = models.DateTimeField(db_index=True)
     status_code = models.PositiveIntegerField(null=True, blank=True)
     response_time = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True)
     is_success = models.BooleanField()
     error_message = models.TextField(blank=True, default="")
+
+    if TYPE_CHECKING:
+        objects: Manager[CheckResult]
+        id: int  # type: ignore[assignment]
+        check: Check  # type: ignore[assignment]
+        check_id: int
+        timestamp: datetime  # type: ignore[assignment]
+        status_code: int | None  # type: ignore[assignment]
+        response_time: float | None  # type: ignore[assignment]
+        is_success: bool  # type: ignore[assignment]
+        error_message: str  # type: ignore[assignment]
 
     class Meta:
         ordering = ["-timestamp"]
@@ -79,12 +120,21 @@ class CheckResult(models.Model):
 
 class Incident(models.Model):
     id = models.AutoField(primary_key=True)
-    check = models.ForeignKey(  # type: ignore[assignment]
-        Check, on_delete=models.CASCADE, related_name="incidents"
-    )
+    check = models.ForeignKey(Check, on_delete=models.CASCADE, related_name="incidents")
     started_at = models.DateTimeField(db_index=True)
     ended_at = models.DateTimeField(null=True, blank=True)
     threshold_result = models.ForeignKey(CheckResult, on_delete=models.SET_NULL, null=True, blank=True)
+
+    if TYPE_CHECKING:
+        objects: Manager[Incident]
+        alert_logs: Manager[AlertLog]
+        id: int  # type: ignore[assignment]
+        check: Check  # type: ignore[assignment]
+        check_id: int
+        started_at: datetime  # type: ignore[assignment]
+        ended_at: datetime | None  # type: ignore[assignment]
+        threshold_result: CheckResult | None  # type: ignore[assignment]
+        threshold_result_id: int | None
 
     class Meta:
         ordering = ["-started_at"]
@@ -101,3 +151,7 @@ class Incident(models.Model):
     def duration(self) -> timedelta:
         end = self.ended_at if self.ended_at else timezone.now()
         return end - self.started_at
+
+
+if TYPE_CHECKING:
+    from pingu.alerts.models import AlertLog  # noqa: F401

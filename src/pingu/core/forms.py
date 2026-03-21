@@ -75,19 +75,19 @@ class CheckForm(forms.ModelForm):
             raise forms.ValidationError("Headers must be a JSON object (key/value pairs).")
         return parsed
 
-    def clean_timeout(self) -> int:
+    def clean_timeout(self) -> int | None:
         timeout = self.cleaned_data.get("timeout")
         if timeout is not None and (timeout < 1 or timeout > 30):
             raise forms.ValidationError("Timeout must be between 1 and 30 seconds.")
         return timeout
 
-    def clean_interval(self) -> int:
+    def clean_interval(self) -> int | None:
         interval = self.cleaned_data.get("interval")
         if interval is not None and (interval < 1 or interval > 60):
             raise forms.ValidationError("Interval must be between 1 and 60 minutes.")
         return interval
 
-    def clean_alert_threshold(self) -> int:
+    def clean_alert_threshold(self) -> int | None:
         threshold = self.cleaned_data.get("alert_threshold")
         if threshold is not None and threshold < 1:
             raise forms.ValidationError("Alert threshold must be at least 1.")
