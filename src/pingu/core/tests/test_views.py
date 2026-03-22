@@ -83,16 +83,17 @@ class TestDashboard:
         assert resp.context["total"] == 0
 
     def test_dashboard_counts_up_down_paused(self, client, user):
-        """Dashboard should correctly count up, down, and paused checks."""
-        # "Up" check — has a result, no open incident, is active
-        up_check = Check.objects.create(
-            name="Up Check", url="https://example.com/up", method="GET",
-            is_active=True, created_by=user,
-        )
-        CheckResult.objects.create(
-            check=up_check, timestamp=timezone.now(),
-            status_code=200, is_success=True,
-        )
+        """Dashboard should correctly count up, down, and paused checks (gap 7.3)."""
+        # Two "Up" checks — asymmetric so swapping up/down would be caught
+        for i in range(2):
+            up_check = Check.objects.create(
+                name=f"Up Check {i}", url=f"https://example.com/up{i}", method="GET",
+                is_active=True, created_by=user,
+            )
+            CheckResult.objects.create(
+                check=up_check, timestamp=timezone.now(),
+                status_code=200, is_success=True,
+            )
 
         # "Down" check — has an open incident
         down_check = Check.objects.create(
@@ -110,7 +111,7 @@ class TestDashboard:
         client.force_login(user)
         resp = client.get(reverse("core:dashboard"))
         assert resp.status_code == 200
-        assert resp.context["up_count"] == 1
+        assert resp.context["up_count"] == 2
         assert resp.context["down_count"] == 1
         assert resp.context["paused_count"] == 1
 

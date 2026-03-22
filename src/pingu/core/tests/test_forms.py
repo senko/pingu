@@ -103,6 +103,12 @@ class TestHeaders:
         assert form.is_valid(), form.errors
         assert form.cleaned_data["headers"] == {"X-Custom": "value"}
 
+    def test_json_list_rejected(self):
+        """A JSON list should be rejected — headers must be a dict (gap 6.4)."""
+        form = CheckForm(data=valid_form_data(headers='["Content-Type"]'))
+        assert not form.is_valid()
+        assert "headers" in form.errors
+
 
 @pytest.mark.django_db
 class TestTimeout:

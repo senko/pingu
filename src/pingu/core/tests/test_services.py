@@ -92,6 +92,59 @@ def test_execute_check_post_with_body(db, user):
 
 @pytest.mark.django_db
 @respx.mock
+def test_execute_check_custom_expected_statuses(db, user):
+    """Custom expected_statuses should override defaults (gap 2.2)."""
+    c = Check.objects.create(
+        name="Custom Statuses",
+        url="https://example.com/custom",
+        method="GET",
+        expected_statuses=[301],
+        timeout=5,
+        interval=1,
+        is_active=True,
+        created_by=user,
+    )
+    # 301 is in custom expected list — should be success
+    respx.get("https://example.com/custom").mock(return_value=httpx.Response(301, text=""))
+    result = async_to_sync(execute_check)(c)
+    assert result.is_success is True
+
+    # 200 is NOT in custom expected list — should be failure
+    respx.get("https://example.com/custom").mock(return_value=httpx.Response(200, text="OK"))
+    result = async_to_sync(execute_check)(c)
+    assert result.is_success is False
+
+
+@pytest.mark.django_db
+@respx.mock
+def test_execute_check_follows_redirects(db, user):
+    """Verify that redirects are followed and the final status is used (gap 2.5)."""
+    c = Check.objects.create(
+        name="Redirect Check",
+        url="https://example.com/redirect",
+        method="GET",
+        expected_statuses=[200],
+        timeout=5,
+        interval=1,
+        is_active=True,
+        created_by=user,
+    )
+    respx.get("https://example.com/redirect").mock(
+        return_value=httpx.Response(
+            301,
+            headers={"Location": "https://example.com/final"},
+        )
+    )
+    respx.get("https://example.com/final").mock(
+        return_value=httpx.Response(200, text="OK")
+    )
+    result = async_to_sync(execute_check)(c)
+    assert result.status_code == 200
+    assert result.is_success is True
+
+
+@pytest.mark.django_db
+@respx.mock
 def test_execute_check_default_expected_statuses(db, user):
     """When expected_statuses is empty, fall back to DEFAULT_EXPECTED_STATUSES."""
     c = Check.objects.create(
@@ -122,6 +175,28 @@ def test_execute_checks_multiple(check, check_no_alert):
 
     assert len(results) == 2
     assert all(r.is_success for r in results)
+
+
+def test_execute_checks_global_timeout(check, check_no_alert):
+    """Global timeout should produce failed results for all checks (gap 2.6)."""
+    with patch("pingu.core.services.asyncio.wait_for", side_effect=TimeoutError):
+        results = async_to_sync(execute_checks)([check, check_no_alert])
+
+    assert len(results) == 2
+    for r in results:
+        assert r.is_success is False
+        assert "Global timeout" in r.error_message
+
+
+@respx.mock
+def test_execute_checks_exception_in_gather(check):
+    """Exception from a task in gather should produce a failed result (gap 2.7)."""
+    with patch("pingu.core.services.execute_check", side_effect=RuntimeError("boom")):
+        results = async_to_sync(execute_checks)([check])
+
+    assert len(results) == 1
+    assert results[0].is_success is False
+    assert "boom" in results[0].error_message
 
 
 # ---------------------------------------------------------------------------
@@ -272,7 +347,7 @@ def test_evaluate_closes_incident_on_success(check):
         evaluate_check_result(result)
 
     incident.refresh_from_db()
-    assert incident.ended_at is not None
+    assert incident.ended_at == result.timestamp
     mock_notify.assert_called_once()
 
 
@@ -391,6 +466,15 @@ def test_get_check_status_up(check, success_result):
     assert get_check_status(check) == "up"
 
 
+@pytest.mark.django_db
+def test_get_check_status_paused_with_open_incident(check):
+    """Paused check with open incident should show 'paused', not 'down' (gap 10.1)."""
+    Incident.objects.create(check=check, started_at=timezone.now())
+    check.is_active = False
+    check.save()
+    assert get_check_status(check) == "paused"
+
+
 # ---------------------------------------------------------------------------
 # get_daily_availability
 # ---------------------------------------------------------------------------
@@ -464,6 +548,21 @@ def test_daily_availability_falls_back_to_incidents(check):
     assert stats["total"] == 0  # no check results
 
 
+@pytest.mark.django_db
+def test_daily_availability_fallback_with_open_incident(check):
+    """Open (ongoing) incident should be included in daily fallback (gap 4.6)."""
+    yesterday = date.today() - timedelta(days=1)
+    day_start = timezone.make_aware(datetime.combine(yesterday, datetime.min.time()))
+    # Open incident that started before the target day (no ended_at)
+    Incident.objects.create(
+        check=check,
+        started_at=day_start,
+    )
+    stats = get_daily_availability(check, yesterday)
+    assert stats["has_data"] is True
+    assert stats["uptime_pct"] < 100.0
+
+
 # ---------------------------------------------------------------------------
 # get_hourly_availability
 # ---------------------------------------------------------------------------
@@ -499,6 +598,14 @@ def test_hourly_availability_with_data(check):
     assert entry["total"] == 5
     assert entry["failures"] == 1
     assert entry["uptime_pct"] == 80.0
+
+
+@pytest.mark.django_db
+def test_hourly_availability_chronological_order(check):
+    """Hourly buckets should be in chronological order, oldest first (gap 4.5)."""
+    result = get_hourly_availability(check, hours=3)
+    assert len(result) == 3
+    assert result[0]["hour_start"] < result[1]["hour_start"] < result[2]["hour_start"]
 
 
 @pytest.mark.django_db
