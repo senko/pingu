@@ -139,6 +139,29 @@
   </div>
 </div>
 
+<!-- Pagination -->
+{% if results.has_other_pages %}
+<div class="flex items-center justify-center gap-2 mt-5">
+  {% if results.has_previous %}
+  <a href="?day={{ day_offset }}&status={{ status_filter }}&page={{ results.previous_page_number }}"
+     class="day-nav-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+  </a>
+  {% endif %}
+
+  <span class="text-sm text-text-secondary">
+    Page {{ results.number }} of {{ results.paginator.num_pages }}
+  </span>
+
+  {% if results.has_next %}
+  <a href="?day={{ day_offset }}&status={{ status_filter }}&page={{ results.next_page_number }}"
+     class="day-nav-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+  </a>
+  {% endif %}
+</div>
+{% endif %}
+
 <!-- Footer -->
 <div class="flex items-center justify-between text-xs text-text-muted py-6">
   <span>Pingu v1.0</span>

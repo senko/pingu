@@ -5,6 +5,7 @@ from datetime import date, datetime, timedelta
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db.models import Avg
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -323,6 +324,11 @@ def check_history(request, pk):
 
     results = results.order_by("-timestamp")
 
+    # Paginate results (50 per page)
+    paginator = Paginator(results, 50)
+    page_number = request.GET.get("page", 1)
+    page_obj = paginator.get_page(page_number)
+
     # Day summary (computed from all results for the day, ignoring filter)
     all_day_results = check.results.filter(timestamp__gte=day_start, timestamp__lt=day_end)
     total = all_day_results.count()
@@ -339,13 +345,13 @@ def check_history(request, pk):
         "avg_response_time": round(avg_response_time, 3) if avg_response_time else None,
     }
 
-    # Pagination
+    # Day navigation
     prev_day = day_offset + 1 if day_offset < max_day else None
     next_day = day_offset - 1 if day_offset > 0 else None
 
     context = {
         "check": check,
-        "results": results,
+        "results": page_obj,
         "day_offset": day_offset,
         "target_date": target_date,
         "status_filter": status_filter,
