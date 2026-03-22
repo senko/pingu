@@ -94,14 +94,14 @@
   </div>
   <div class="px-5 py-5">
     <!-- Bars -->
-    <div class="bar-wrap" style="height:3.5rem;align-items:flex-end;">
+    <div class="bar-wrap" style="height:5rem;align-items:flex-end;">
       {% for bar in hourly_data %}
       <div class="bar-col" style="flex:1;">
         <div class="bar-tooltip">
           <div>{{ bar.hour_start|date:"H:i" }} – {{ bar.hour_end|date:"H:i" }}</div>
           <div class="text-text-muted">{% if bar.total > 0 %}{{ bar.uptime_pct }}% · {{ bar.total }} checks · {{ bar.failures }} fail{% else %}No data{% endif %}</div>
         </div>
-        <div class="rounded-sm bg-{{ bar.color }}" style="height:{% if bar.total > 0 %}{{ bar.uptime_pct }}{% else %}20{% endif %}%;min-height:4px;transition:height 300ms ease;"></div>
+        <div class="rounded-sm bg-{{ bar.color }}" style="height:{% if bar.total > 0 %}{{ bar.uptime_pct }}{% else %}20{% endif %}%;min-height:10px;transition:height 300ms ease;"></div>
       </div>
       {% endfor %}
     </div>
@@ -132,7 +132,7 @@
     ">{{ uptime_30d }}% uptime</span>
   </div>
   <div class="px-5 py-5">
-    <div class="bar-wrap" style="height:3.5rem;align-items:flex-end;">
+    <div class="bar-wrap" style="height:5rem;align-items:flex-end;">
       {% for bar in daily_data %}
       <div class="bar-col" style="flex:1;">
         <div class="bar-tooltip">
@@ -142,7 +142,7 @@
             {% if bar.total > 0 %} · {{ bar.total }} checks{% endif %}
           </div>
         </div>
-        <div class="rounded-sm bg-{{ bar.color }}" style="height:{% if bar.has_data %}{{ bar.uptime_pct }}{% else %}20{% endif %}%;min-height:4px;transition:height 300ms ease;"></div>
+        <div class="rounded-sm bg-{{ bar.color }}" style="height:{% if bar.has_data %}{{ bar.uptime_pct }}{% else %}20{% endif %}%;min-height:10px;transition:height 300ms ease;"></div>
       </div>
       {% endfor %}
     </div>
