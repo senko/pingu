@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -6,7 +7,60 @@ from django.contrib.messages import get_messages
 from django.urls import reverse
 from django.utils import timezone
 
-from pingu.core.models import Check, CheckResult
+from pingu.core.models import Check, CheckResult, Incident
+from pingu.core.views import _get_uptime_bar_color, _relative_time
+
+# ---------------------------------------------------------------------------
+# _relative_time helper
+# ---------------------------------------------------------------------------
+
+
+class TestRelativeTime:
+    def test_none_returns_never(self):
+        assert _relative_time(None) == "never"
+
+    def test_seconds_ago(self):
+        now = timezone.now()
+        assert _relative_time(now - timedelta(seconds=47)) == "47s ago"
+
+    def test_just_now(self):
+        # Future timestamp should return "just now"
+        assert _relative_time(timezone.now() + timedelta(seconds=5)) == "just now"
+
+    def test_minutes_ago(self):
+        assert _relative_time(timezone.now() - timedelta(minutes=12)) == "12m ago"
+
+    def test_hours_ago(self):
+        assert _relative_time(timezone.now() - timedelta(hours=3)) == "3h ago"
+
+    def test_days_ago(self):
+        assert _relative_time(timezone.now() - timedelta(days=7)) == "7d ago"
+
+
+# ---------------------------------------------------------------------------
+# _get_uptime_bar_color helper
+# ---------------------------------------------------------------------------
+
+
+class TestGetUptimeBarColor:
+    def test_none_returns_surface(self):
+        assert _get_uptime_bar_color(None) == "surface-600"
+
+    def test_perfect_uptime(self):
+        assert _get_uptime_bar_color(100.0) == "status-up"
+
+    def test_minor_downtime(self):
+        # 0.5% downtime (99.5% uptime) — between green and yellow thresholds
+        assert _get_uptime_bar_color(99.5) == "status-warn"
+
+    def test_moderate_downtime(self):
+        # 3% downtime (97.0% uptime) — between yellow and orange thresholds
+        assert _get_uptime_bar_color(97.0) == "status-orange"
+
+    def test_severe_downtime(self):
+        # 10% downtime (90.0% uptime) — above orange threshold
+        assert _get_uptime_bar_color(90.0) == "status-down"
+
 
 # ---------------------------------------------------------------------------
 # Dashboard
@@ -27,6 +81,68 @@ class TestDashboard:
         resp = client.get(reverse("core:dashboard"))
         assert resp.status_code == 200
         assert resp.context["total"] == 0
+
+    def test_dashboard_counts_up_down_paused(self, client, user):
+        """Dashboard should correctly count up, down, and paused checks."""
+        # "Up" check — has a result, no open incident, is active
+        up_check = Check.objects.create(
+            name="Up Check", url="https://example.com/up", method="GET",
+            is_active=True, created_by=user,
+        )
+        CheckResult.objects.create(
+            check=up_check, timestamp=timezone.now(),
+            status_code=200, is_success=True,
+        )
+
+        # "Down" check — has an open incident
+        down_check = Check.objects.create(
+            name="Down Check", url="https://example.com/down", method="GET",
+            is_active=True, created_by=user,
+        )
+        Incident.objects.create(check=down_check, started_at=timezone.now() - timedelta(hours=1))
+
+        # "Paused" check — is_active=False
+        Check.objects.create(
+            name="Paused Check", url="https://example.com/paused", method="GET",
+            is_active=False, created_by=user,
+        )
+
+        client.force_login(user)
+        resp = client.get(reverse("core:dashboard"))
+        assert resp.status_code == 200
+        assert resp.context["up_count"] == 1
+        assert resp.context["down_count"] == 1
+        assert resp.context["paused_count"] == 1
+
+    def test_dashboard_last_status_change_down_with_incident(self, client, user, check):
+        """Down check with open incident shows 'Down since ...'."""
+        Incident.objects.create(check=check, started_at=timezone.now() - timedelta(hours=2))
+        CheckResult.objects.create(
+            check=check, timestamp=timezone.now(),
+            status_code=500, is_success=False,
+        )
+        client.force_login(user)
+        resp = client.get(reverse("core:dashboard"))
+        item = resp.context["check_data"][0]
+        assert item["status"] == "down"
+        assert "Down since" in item["last_status_change"]
+
+    def test_dashboard_last_status_change_up_with_closed_incident(self, client, user, check):
+        """Up check with a closed incident shows 'Up since ...'."""
+        ended = timezone.now() - timedelta(minutes=30)
+        Incident.objects.create(
+            check=check, started_at=timezone.now() - timedelta(hours=2),
+            ended_at=ended,
+        )
+        CheckResult.objects.create(
+            check=check, timestamp=timezone.now(),
+            status_code=200, is_success=True,
+        )
+        client.force_login(user)
+        resp = client.get(reverse("core:dashboard"))
+        item = resp.context["check_data"][0]
+        assert item["status"] == "up"
+        assert "Up since" in item["last_status_change"]
 
 
 # ---------------------------------------------------------------------------
@@ -63,6 +179,26 @@ class TestCheckCreate:
         assert new_check.created_by == user
         assert new_check.expected_statuses == [200, 201]
         assert resp.url == reverse("core:check_detail", args=[new_check.pk])
+
+    def test_check_create_post_default_expected_statuses(self, client, user):
+        """When expected_statuses is left blank, defaults to [200, 201, 204]."""
+        client.force_login(user)
+        data = {
+            "name": "Default Statuses",
+            "url": "https://example.com/default",
+            "method": "GET",
+            "expected_statuses": "",
+            "timeout": 10,
+            "interval": 5,
+            "is_active": True,
+            "alert_enabled": False,
+            "alert_threshold": 3,
+            "alert_email": "",
+        }
+        resp = client.post(reverse("core:check_create"), data)
+        assert resp.status_code == 302
+        new_check = Check.objects.get(name="Default Statuses")
+        assert new_check.expected_statuses == [200, 201, 204]
 
     def test_check_create_post_invalid(self, client, user):
         client.force_login(user)
@@ -144,6 +280,41 @@ class TestCheckDetail:
         assert "status" in resp.context
         assert "hourly_data" in resp.context
         assert "daily_data" in resp.context
+
+    def test_check_detail_with_data(self, client, user, check):
+        """Detail view with results populates monthly_data and uptime stats."""
+        now = timezone.now()
+        # Create results spanning a few days so uptime_30d calculation runs
+        for i in range(5):
+            CheckResult.objects.create(
+                check=check,
+                timestamp=now - timedelta(days=i, hours=1),
+                status_code=200, is_success=True,
+            )
+        # Add one failure
+        CheckResult.objects.create(
+            check=check, timestamp=now - timedelta(hours=2),
+            status_code=500, is_success=False,
+        )
+
+        client.force_login(user)
+        resp = client.get(reverse("core:check_detail", args=[check.pk]))
+        assert resp.status_code == 200
+        assert "monthly_data" in resp.context
+        assert "uptime_24h" in resp.context
+        assert "uptime_30d" in resp.context
+        assert resp.context["uptime_30d"] <= 100.0
+
+    def test_check_detail_monthly_data_for_old_check(self, client, user, check):
+        """Check created >30 days ago should have monthly_data entries."""
+        # Backdate the check's created_at
+        check.created_at = timezone.now() - timedelta(days=90)
+        check.save(update_fields=["created_at"])
+
+        client.force_login(user)
+        resp = client.get(reverse("core:check_detail", args=[check.pk]))
+        assert resp.status_code == 200
+        assert len(resp.context["monthly_data"]) > 0
 
 
 # ---------------------------------------------------------------------------

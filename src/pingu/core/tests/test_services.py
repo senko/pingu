@@ -19,6 +19,7 @@ from pingu.core.services import (
     get_daily_availability,
     get_hourly_availability,
     get_monthly_availability,
+    get_uptime_color,
     run_single_check,
 )
 
@@ -588,3 +589,62 @@ def test_run_single_check_failure(check):
     assert result.pk is not None  # saved to DB
     assert CheckResult.objects.filter(pk=result.pk).exists()
     mock_eval.assert_called_once_with(result)
+
+
+# ---------------------------------------------------------------------------
+# get_uptime_color
+# ---------------------------------------------------------------------------
+
+
+def test_get_uptime_color_green():
+    assert get_uptime_color(0.0) == "bg-green-500"
+
+
+def test_get_uptime_color_yellow():
+    assert get_uptime_color(0.5) == "bg-yellow-500"
+
+
+def test_get_uptime_color_orange():
+    assert get_uptime_color(3.0) == "bg-orange-500"
+
+
+def test_get_uptime_color_red():
+    assert get_uptime_color(10.0) == "bg-red-500"
+
+
+# ---------------------------------------------------------------------------
+# get_monthly_availability — December boundary
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_monthly_availability_december(check):
+    """December should correctly set month_end to January 1 of next year."""
+    month_start = timezone.make_aware(datetime(2025, 12, 1))
+    Incident.objects.create(
+        check=check,
+        started_at=month_start + timedelta(hours=1),
+        ended_at=month_start + timedelta(hours=2),
+    )
+    stats = get_monthly_availability(check, 2025, 12)
+    assert stats["incidents"] == 1
+    assert stats["downtime_seconds"] == 3600.0
+    assert stats["has_data"] is True
+    # December has 31 days = 2678400 seconds
+    expected_uptime = round(((2678400 - 3600) / 2678400) * 100, 2)
+    assert stats["uptime_pct"] == expected_uptime
+
+
+# ---------------------------------------------------------------------------
+# execute_check — generic HTTPError
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+def test_execute_check_generic_http_error(check):
+    respx.get("https://example.com").mock(side_effect=httpx.HTTPError("something broke"))
+    result = async_to_sync(execute_check)(check)
+
+    assert result.is_success is False
+    assert result.status_code is None
+    assert "something broke" in result.error_message
