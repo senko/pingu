@@ -30,6 +30,10 @@ settings_module = "pingu.settings"
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "pingu.settings"
 pythonpath = ["src"]
+filterwarnings = [
+    "ignore:No directory at.*:UserWarning",
+    "ignore::django.utils.deprecation.RemovedInDjango60Warning",
+]
 
 [tool.ruff]
 line-length = 120
